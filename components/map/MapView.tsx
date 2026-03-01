@@ -1,5 +1,6 @@
 'use client'
 
+import 'leaflet/dist/leaflet.css'
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
@@ -16,6 +17,13 @@ export default function MapView({ pins }: Props) {
   const leafletRef = useRef<ReturnType<typeof import('leaflet').map> | null>(null)
   const [activeFilter, setActiveFilter] = useState('All Trips')
   const [selectedTrip, setSelectedTrip] = useState(MOCK_TRIPS[0])
+  const [searchQuery, setSearchQuery] = useState('')
+
+  const filteredTrips = MOCK_TRIPS.filter(t =>
+    searchQuery === '' ||
+    t.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    t.location.toLowerCase().includes(searchQuery.toLowerCase())
+  )
 
   useEffect(() => {
     if (!mapRef.current || leafletRef.current) return
@@ -57,9 +65,9 @@ export default function MapView({ pins }: Props) {
   }, [pins])
 
   return (
-    <div className="flex flex-col flex-1 relative overflow-hidden">
+    <div className="flex flex-col relative overflow-hidden" style={{ height: 'calc(100dvh - 64px)' }}>
       {/* Map */}
-      <div ref={mapRef} className="absolute inset-0" />
+      <div ref={mapRef} style={{ position: 'absolute', inset: 0, zIndex: 0 }} />
 
       {/* Top bar */}
       <div className="absolute top-0 left-0 right-0 z-10 pt-14 px-4 pb-3"
@@ -70,7 +78,14 @@ export default function MapView({ pins }: Props) {
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16" style={{ color: 'var(--text3)', flexShrink: 0 }}>
             <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
           </svg>
-          <input type="text" placeholder="Search destinations…" className="bg-transparent border-none outline-none text-sm w-full" style={{ color: 'var(--text)' }} />
+          <input
+            type="text"
+            placeholder="Search destinations…"
+            className="bg-transparent border-none outline-none text-sm w-full"
+            style={{ color: 'var(--text)' }}
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+          />
         </div>
         {/* Filters */}
         <div className="flex gap-2 overflow-x-auto no-scrollbar">
@@ -91,10 +106,10 @@ export default function MapView({ pins }: Props) {
         style={{ background: 'var(--bg2)', border: '1px solid var(--border)' }}>
         <div className="px-5 py-4">
           <div className="text-sm font-medium mb-3.5" style={{ color: 'var(--text2)' }}>
-            {pins.length} itineraries near this area
+            {filteredTrips.length} itineraries near this area
           </div>
           <div className="flex gap-3 overflow-x-auto no-scrollbar">
-            {MOCK_TRIPS.map(trip => (
+            {filteredTrips.map(trip => (
               <button
                 key={trip.id}
                 className="flex-shrink-0 w-40 rounded-[10px] overflow-hidden active:scale-[0.96] transition-transform"
