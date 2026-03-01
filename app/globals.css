@@ -154,30 +154,30 @@ html, body {
 .backdrop.visible { opacity: 1; pointer-events: all; }
 
 /* ─── Leaflet overrides ──────────────────────────────────────── */
-.leaflet-container { background: #0B0B14 !important; }
+.leaflet-container { background: #e8e0d8 !important; }
 .leaflet-control-zoom { display: none !important; }
-.leaflet-tile { filter: brightness(0.85) saturate(0.5); }
+/* Voyager tiles are light — no filter needed */
 .leaflet-control-attribution {
-  background: rgba(11,11,20,0.6) !important;
-  color: var(--text3) !important;
+  background: rgba(255,255,255,0.75) !important;
+  color: #666 !important;
   font-size: 9px;
 }
 .leaflet-tooltip {
   background: rgba(20,20,42,0.92) !important;
-  border: 1px solid rgba(200,165,90,0.3) !important;
+  border: 1px solid rgba(200,165,90,0.4) !important;
   color: var(--text) !important;
   font-family: -apple-system, sans-serif !important;
   font-size: 12px !important;
   border-radius: 6px !important;
-  box-shadow: none !important;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3) !important;
 }
 .leaflet-tooltip::before { display: none !important; }
 .wayfarer-pin {
   background: var(--gold);
-  width: 10px; height: 10px;
+  width: 14px; height: 14px;
   border-radius: 50%;
-  border: 2px solid #0B0B14;
-  box-shadow: 0 0 0 4px rgba(200,165,90,0.25);
+  border: 2.5px solid #fff;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.4), 0 0 0 3px rgba(200,165,90,0.35);
 }
 
 /* ─── Animations ─────────────────────────────────────────────── */
