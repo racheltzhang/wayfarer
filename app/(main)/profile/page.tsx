@@ -46,7 +46,7 @@ function TripCell({ trip }: { trip: (typeof MOCK_TRIPS)[0] }) {
           className="absolute top-1.5 right-1.5 flex items-center gap-0.5 text-[9px] font-bold rounded-full px-1.5 py-0.5"
           style={{ background: 'rgba(11,11,20,0.75)', color: 'var(--gold-lt)', backdropFilter: 'blur(6px)' }}
         >
-          ★ {trip.rating.toFixed(1)}
+          ★ {trip.rating?.toFixed(1) ?? '—'}
         </div>
       </div>
     </Link>
