@@ -23,15 +23,7 @@ interface Basics {
   description:     string
   visibility:      'public' | 'friends' | 'private'
   coverImageUrl:   string
-  dateMode:        'skip' | 'exact' | 'approx'
-  // exact mode
-  startMonth:      string   // '01'–'12'
-  startDay:        string   // '1'–'31'
-  startYear:       string
-  endMonth:        string
-  endDay:          string
-  endYear:         string
-  // approx mode
+  // timing (all optional)
   approxYear:      string
   approxMonth:     string   // 'Jan', 'Feb', …
   approxPart:      string   // 'Early' | 'Mid' | 'Late' | ''
@@ -340,76 +332,15 @@ function DayBuilder({ days, onChange }: {
 // ─── Date Section ──────────────────────────────────────────────
 
 const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
-const MONTH_NUMS  = ['01','02','03','04','05','06','07','08','09','10','11','12']
-const DAYS        = Array.from({ length: 31 }, (_, i) => String(i + 1))
 const THIS_YEAR   = new Date().getFullYear()
 const YEARS       = [THIS_YEAR, THIS_YEAR + 1, THIS_YEAR + 2, THIS_YEAR + 3].map(String)
 const DURATIONS   = ['~1 week', '~2 weeks', '~1 month', '~3 months', 'Flexible']
 const PARTS       = ['Early', 'Mid', 'Late']
 
-function StyledSelect({ value, onChange, options, placeholder }: {
-  value: string
-  onChange: (v: string) => void
-  options: { value: string; label: string }[]
-  placeholder?: string
-}) {
-  return (
-    <div style={{ position: 'relative', flex: 1 }}>
-      <select
-        value={value}
-        onChange={e => onChange(e.target.value)}
-        style={{
-          width: '100%',
-          appearance: 'none', WebkitAppearance: 'none',
-          background: 'var(--bg3)',
-          border: '1px solid var(--border)',
-          color: value ? 'var(--text)' : 'var(--text3)',
-          borderRadius: 10,
-          padding: '10px 30px 10px 12px',
-          fontSize: 13,
-          fontFamily: 'inherit',
-          cursor: 'pointer',
-          outline: 'none',
-        }}
-      >
-        {placeholder && <option value="">{placeholder}</option>}
-        {options.map(o => (
-          <option key={o.value} value={o.value} style={{ background: 'var(--bg2)', color: 'var(--text)' }}>
-            {o.label}
-          </option>
-        ))}
-      </select>
-      {/* Custom chevron */}
-      <svg
-        viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
-        width="14" height="14"
-        style={{
-          position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)',
-          pointerEvents: 'none', color: 'var(--text3)',
-        }}
-      >
-        <polyline points="6 9 12 15 18 9" />
-      </svg>
-    </div>
-  )
-}
-
 function DateSection({ basics, onChange }: { basics: Basics; onChange: (b: Basics) => void }) {
-  const monthOpts  = MONTH_NAMES.map((m, i) => ({ value: MONTH_NUMS[i], label: m }))
-  const dayOpts    = DAYS.map(d => ({ value: d, label: d }))
-  const yearOpts   = YEARS.map(y => ({ value: y, label: y }))
+  const hasData = !!(basics.approxYear || basics.approxMonth || basics.approxDuration)
+  const [open, setOpen] = useState(hasData)
 
-  // Build readable exact date string for preview
-  const fmtExact = (month: string, day: string, year: string) => {
-    if (!month || !year) return ''
-    const mLabel = MONTH_NAMES[parseInt(month, 10) - 1] ?? ''
-    return day ? `${mLabel} ${day}, ${year}` : `${mLabel} ${year}`
-  }
-  const exactStart = fmtExact(basics.startMonth, basics.startDay, basics.startYear)
-  const exactEnd   = fmtExact(basics.endMonth,   basics.endDay,   basics.endYear)
-  const exactLabel = exactStart && exactEnd ? `${exactStart} → ${exactEnd}` : exactStart || exactEnd || null
-
-  // Approx label
   const approxLabel = [
     basics.approxPart,
     basics.approxMonth,
@@ -417,73 +348,36 @@ function DateSection({ basics, onChange }: { basics: Basics; onChange: (b: Basic
     basics.approxDuration,
   ].filter(Boolean).join(' ')
 
-  const TAB_ACTIVE = { background: 'var(--gold)', color: '#0B0B14', border: 'none' }
-  const TAB_IDLE   = { background: 'var(--bg3)', color: 'var(--text2)', border: '1px solid var(--border)' }
-
-  const modes = [
-    { id: 'skip'  as const, label: 'Skip' },
-    { id: 'exact' as const, label: 'Exact' },
-    { id: 'approx'as const, label: 'Approx' },
-  ]
+  function clearDates() {
+    onChange({ ...basics, approxYear: '', approxMonth: '', approxPart: '', approxDuration: '' })
+    setOpen(false)
+  }
 
   return (
     <div>
       <div className="flex items-center justify-between mb-2">
         <label className="text-xs font-semibold" style={{ color: 'var(--text2)' }}>WHEN ARE YOU GOING?</label>
-        <div className="flex rounded-[8px] overflow-hidden" style={{ border: '1px solid var(--border)' }}>
-          {modes.map(m => (
-            <button
-              key={m.id}
-              onClick={() => onChange({ ...basics, dateMode: m.id })}
-              style={{
-                fontSize: 11, fontWeight: 700, padding: '5px 11px',
-                ...(basics.dateMode === m.id ? TAB_ACTIVE : TAB_IDLE),
-                borderRadius: 0,
-              }}
-            >
-              {m.label}
-            </button>
-          ))}
-        </div>
+        {open && (
+          <button
+            onClick={clearDates}
+            style={{ fontSize: 11, color: 'var(--text3)', background: 'none', border: 'none', cursor: 'pointer', padding: '2px 4px' }}
+          >
+            Clear
+          </button>
+        )}
       </div>
 
-      {basics.dateMode === 'skip' ? (
-        <div style={{
-          fontSize: 12, color: 'var(--text3)', padding: '10px 14px',
-          borderRadius: 8, background: 'var(--bg3)', border: '1px solid var(--border)',
-        }}>
-          📅 No dates set — you can add them later
-        </div>
-      ) : basics.dateMode === 'exact' ? (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {/* Start */}
-          <div>
-            <div style={{ fontSize: 11, color: 'var(--text3)', fontWeight: 600, marginBottom: 6 }}>FROM</div>
-            <div style={{ display: 'flex', gap: 6 }}>
-              <StyledSelect value={basics.startMonth} onChange={v => onChange({ ...basics, startMonth: v })}
-                options={monthOpts} placeholder="Month" />
-              <StyledSelect value={basics.startDay}   onChange={v => onChange({ ...basics, startDay: v })}
-                options={dayOpts}   placeholder="Day" />
-              <StyledSelect value={basics.startYear}  onChange={v => onChange({ ...basics, startYear: v })}
-                options={yearOpts}  placeholder="Year" />
-            </div>
-          </div>
-          {/* End */}
-          <div>
-            <div style={{ fontSize: 11, color: 'var(--text3)', fontWeight: 600, marginBottom: 6 }}>TO</div>
-            <div style={{ display: 'flex', gap: 6 }}>
-              <StyledSelect value={basics.endMonth} onChange={v => onChange({ ...basics, endMonth: v })}
-                options={monthOpts} placeholder="Month" />
-              <StyledSelect value={basics.endDay}   onChange={v => onChange({ ...basics, endDay: v })}
-                options={dayOpts}   placeholder="Day" />
-              <StyledSelect value={basics.endYear}  onChange={v => onChange({ ...basics, endYear: v })}
-                options={yearOpts}  placeholder="Year" />
-            </div>
-          </div>
-          {exactLabel && (
-            <div style={{ fontSize: 12, color: 'var(--gold)', marginTop: 2 }}>📅 {exactLabel}</div>
-          )}
-        </div>
+      {!open ? (
+        <button
+          onClick={() => setOpen(true)}
+          style={{
+            width: '100%', padding: '10px 14px', borderRadius: 8, textAlign: 'left', cursor: 'pointer',
+            background: 'var(--bg3)', border: '1px dashed var(--border)',
+            fontSize: 12, color: 'var(--text3)',
+          }}
+        >
+          📅 Add timing — optional
+        </button>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           {/* Year */}
@@ -522,7 +416,7 @@ function DateSection({ basics, onChange }: { basics: Basics; onChange: (b: Basic
 
           {/* Part of month */}
           <div>
-            <div style={{ fontSize: 11, color: 'var(--text3)', fontWeight: 600, marginBottom: 6 }}>PART OF MONTH (optional)</div>
+            <div style={{ fontSize: 11, color: 'var(--text3)', fontWeight: 600, marginBottom: 6 }}>PART OF MONTH <span style={{ fontWeight: 400, color: 'var(--text3)' }}>(optional)</span></div>
             <div style={{ display: 'flex', gap: 6 }}>
               {PARTS.map(p => (
                 <button key={p} onClick={() => onChange({ ...basics, approxPart: basics.approxPart === p ? '' : p })}
@@ -650,22 +544,8 @@ function PublishScreen({ basics, days, onPublish }: { basics: Basics; days: Draf
   const seasonLabel = basics.season ? SEASONS.find(s => s.value === basics.season) : null
 
   // Date label for preview
-  let dateStr: string | null = null
-  if (basics.dateMode === 'skip') {
-    dateStr = null
-  } else if (basics.dateMode === 'exact') {
-    const fmtISO = (m: string, d: string, y: string) => {
-      if (!m || !y) return null
-      const mn = MONTH_NAMES[parseInt(m, 10) - 1] ?? ''
-      return d ? `${mn} ${d}, ${y}` : `${mn} ${y}`
-    }
-    const s = fmtISO(basics.startMonth, basics.startDay, basics.startYear)
-    const e = fmtISO(basics.endMonth,   basics.endDay,   basics.endYear)
-    dateStr = s && e ? `${s} – ${e}` : s || e
-  } else {
-    const parts = [basics.approxPart, basics.approxMonth, basics.approxYear, basics.approxDuration].filter(Boolean)
-    dateStr = parts.length ? parts.join(' ') : null
-  }
+  const approxParts = [basics.approxPart, basics.approxMonth, basics.approxYear, basics.approxDuration].filter(Boolean)
+  const dateStr = approxParts.length ? approxParts.join(' ') : null
   return (
     <div className="flex flex-col gap-5">
       <div className="rounded-[14px] overflow-hidden" style={{ border: '1px solid var(--border)' }}>
@@ -727,9 +607,6 @@ export default function CreateFlow() {
     title: '', location: '', description: '',
     visibility: 'friends',
     coverImageUrl: 'https://picsum.photos/seed/tokyo99/800/500',
-    dateMode: 'skip',
-    startMonth: '', startDay: '', startYear: '',
-    endMonth:   '', endDay:   '', endYear:   '',
     approxYear: '', approxMonth: '', approxPart: '', approxDuration: '',
     season: '',
   })
@@ -758,9 +635,6 @@ export default function CreateFlow() {
       title: `My ${trip.title}`, location: trip.location,
       description: trip.description ?? '', visibility: 'friends',
       coverImageUrl: trip.cover_image_url ?? '',
-      dateMode: 'skip',
-      startMonth: '', startDay: '', startYear: '',
-      endMonth:   '', endDay:   '', endYear:   '',
       approxYear: '', approxMonth: '', approxPart: '', approxDuration: '',
       season: (trip.season as Season | '') ?? '',
     })
@@ -776,19 +650,11 @@ export default function CreateFlow() {
   function publish() {
     const me = MOCK_PROFILES.find(p => p.id === 'me')!
 
-    // Build ISO date strings from individual fields (exact mode)
-    const toISO = (month: string, day: string, year: string) =>
-      month && year ? `${year}-${month}-${day.padStart(2, '0') || '01'}` : null
-    const startISO = basics.dateMode === 'exact' ? toISO(basics.startMonth, basics.startDay, basics.startYear) : null
-    const endISO   = basics.dateMode === 'exact' ? toISO(basics.endMonth,   basics.endDay,   basics.endYear)   : null
-
-    // Approx label (only when mode is approx and something was selected)
+    // Approx label (when something was selected)
     const approxParts = [basics.approxPart, basics.approxMonth, basics.approxYear, basics.approxDuration].filter(Boolean)
-    const approxLabel = basics.dateMode === 'approx' && approxParts.length > 0 ? approxParts.join(' ') : null
+    const approxLabel = approxParts.length > 0 ? approxParts.join(' ') : null
 
-    const durationDays = startISO && endISO
-      ? Math.max(1, Math.round((new Date(endISO).getTime() - new Date(startISO).getTime()) / 86400000) + 1)
-      : days.length
+    const durationDays = days.length
 
     const newTrip: Trip = {
       id:               `trip-pub-${Date.now()}`,
@@ -805,8 +671,8 @@ export default function CreateFlow() {
       tags:             [],
       author:           me,
       created_at:       new Date().toISOString().slice(0, 10),
-      start_date:       startISO,
-      end_date:         endISO,
+      start_date:       null,
+      end_date:         null,
       approx_date_label: approxLabel,
       season:           (basics.season as Season) || null,
       days: days.map((d, i) => ({
