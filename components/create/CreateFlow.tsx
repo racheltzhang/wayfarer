@@ -23,7 +23,7 @@ interface Basics {
   description:     string
   visibility:      'public' | 'friends' | 'private'
   coverImageUrl:   string
-  dateMode:        'exact' | 'approx'
+  dateMode:        'skip' | 'exact' | 'approx'
   // exact mode
   startMonth:      string   // '01'–'12'
   startDay:        string   // '1'–'31'
@@ -420,28 +420,41 @@ function DateSection({ basics, onChange }: { basics: Basics; onChange: (b: Basic
   const TAB_ACTIVE = { background: 'var(--gold)', color: '#0B0B14', border: 'none' }
   const TAB_IDLE   = { background: 'var(--bg3)', color: 'var(--text2)', border: '1px solid var(--border)' }
 
+  const modes = [
+    { id: 'skip'  as const, label: 'Skip' },
+    { id: 'exact' as const, label: 'Exact' },
+    { id: 'approx'as const, label: 'Approx' },
+  ]
+
   return (
     <div>
       <div className="flex items-center justify-between mb-2">
         <label className="text-xs font-semibold" style={{ color: 'var(--text2)' }}>WHEN ARE YOU GOING?</label>
         <div className="flex rounded-[8px] overflow-hidden" style={{ border: '1px solid var(--border)' }}>
-          {(['exact', 'approx'] as const).map(mode => (
+          {modes.map(m => (
             <button
-              key={mode}
-              onClick={() => onChange({ ...basics, dateMode: mode })}
+              key={m.id}
+              onClick={() => onChange({ ...basics, dateMode: m.id })}
               style={{
-                fontSize: 11, fontWeight: 700, padding: '5px 12px',
-                ...(basics.dateMode === mode ? TAB_ACTIVE : TAB_IDLE),
+                fontSize: 11, fontWeight: 700, padding: '5px 11px',
+                ...(basics.dateMode === m.id ? TAB_ACTIVE : TAB_IDLE),
                 borderRadius: 0,
               }}
             >
-              {mode === 'exact' ? 'Exact' : 'Approximate'}
+              {m.label}
             </button>
           ))}
         </div>
       </div>
 
-      {basics.dateMode === 'exact' ? (
+      {basics.dateMode === 'skip' ? (
+        <div style={{
+          fontSize: 12, color: 'var(--text3)', padding: '10px 14px',
+          borderRadius: 8, background: 'var(--bg3)', border: '1px solid var(--border)',
+        }}>
+          📅 No dates set — you can add them later
+        </div>
+      ) : basics.dateMode === 'exact' ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {/* Start */}
           <div>
@@ -638,7 +651,9 @@ function PublishScreen({ basics, days, onPublish }: { basics: Basics; days: Draf
 
   // Date label for preview
   let dateStr: string | null = null
-  if (basics.dateMode === 'exact') {
+  if (basics.dateMode === 'skip') {
+    dateStr = null
+  } else if (basics.dateMode === 'exact') {
     const fmtISO = (m: string, d: string, y: string) => {
       if (!m || !y) return null
       const mn = MONTH_NAMES[parseInt(m, 10) - 1] ?? ''
@@ -712,7 +727,7 @@ export default function CreateFlow() {
     title: '', location: '', description: '',
     visibility: 'friends',
     coverImageUrl: 'https://picsum.photos/seed/tokyo99/800/500',
-    dateMode: 'exact',
+    dateMode: 'skip',
     startMonth: '', startDay: '', startYear: '',
     endMonth:   '', endDay:   '', endYear:   '',
     approxYear: '', approxMonth: '', approxPart: '', approxDuration: '',
@@ -743,7 +758,7 @@ export default function CreateFlow() {
       title: `My ${trip.title}`, location: trip.location,
       description: trip.description ?? '', visibility: 'friends',
       coverImageUrl: trip.cover_image_url ?? '',
-      dateMode: 'exact',
+      dateMode: 'skip',
       startMonth: '', startDay: '', startYear: '',
       endMonth:   '', endDay:   '', endYear:   '',
       approxYear: '', approxMonth: '', approxPart: '', approxDuration: '',
@@ -767,9 +782,9 @@ export default function CreateFlow() {
     const startISO = basics.dateMode === 'exact' ? toISO(basics.startMonth, basics.startDay, basics.startYear) : null
     const endISO   = basics.dateMode === 'exact' ? toISO(basics.endMonth,   basics.endDay,   basics.endYear)   : null
 
-    // Approx label
+    // Approx label (only when mode is approx and something was selected)
     const approxParts = [basics.approxPart, basics.approxMonth, basics.approxYear, basics.approxDuration].filter(Boolean)
-    const approxLabel = basics.dateMode === 'approx' && approxParts.length ? approxParts.join(' ') : null
+    const approxLabel = basics.dateMode === 'approx' && approxParts.length > 0 ? approxParts.join(' ') : null
 
     const durationDays = startISO && endISO
       ? Math.max(1, Math.round((new Date(endISO).getTime() - new Date(startISO).getTime()) / 86400000) + 1)
