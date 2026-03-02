@@ -3,10 +3,11 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
-import type { Trip } from '@/lib/types'
+import type { Trip, DraftActivity } from '@/lib/types'
 import { formatRating, starsFilled } from '@/lib/utils'
 import { useToast, ToastProvider } from '@/components/ui/Toast'
 import { AppStateProvider, useAppState } from '@/lib/app-state'
+import { MOCK_TRIPS, MOCK_PROFILES } from '@/lib/mock-data'
 
 interface Props { trip: Trip }
 
@@ -19,25 +20,166 @@ const SEASON_LABELS: Record<string, string> = {
 
 function formatDateRange(start?: string | null, end?: string | null) {
   if (!start && !end) return null
-  const fmt = (s: string) => new Date(s).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+  const fmt = (s: string) =>
+    new Date(s).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
   if (start && end) return `${fmt(start)} – ${fmt(end)}`
   if (start) return `From ${fmt(start)}`
-  if (end)   return `Until ${fmt(end)}`
-  return null
+  return `Until ${fmt(end!)}`
 }
+
+// ─── Add-to-Trip Sheet ──────────────────────────────────────────
+
+function AddToTripSheet({ activity, onClose }: {
+  activity: DraftActivity
+  onClose: () => void
+}) {
+  const router = useRouter()
+  const { showToast } = useToast()
+  const { publishedTrips, addActivityToTrip, setPendingActivity } = useAppState()
+
+  // All "my" trips: published ones + the built-in mock trip authored by me
+  const mockMyTrips = MOCK_TRIPS.filter(t => t.author.id === 'me')
+  const myTrips: Trip[] = [
+    ...publishedTrips,
+    ...mockMyTrips.filter(t => !publishedTrips.some(p => p.id === t.id)),
+  ]
+
+  function handleAddToTrip(trip: Trip) {
+    addActivityToTrip(trip.id, activity)
+    showToast(`✓ Added to "${trip.title}"`)
+    onClose()
+  }
+
+  function handleCreateNew() {
+    setPendingActivity(activity)
+    onClose()
+    router.push('/create')
+  }
+
+  return (
+    <>
+      {/* Backdrop */}
+      <div
+        onClick={onClose}
+        style={{
+          position: 'fixed', inset: 0, zIndex: 40,
+          background: 'rgba(11,11,20,0.6)', backdropFilter: 'blur(4px)',
+        }}
+      />
+      {/* Sheet */}
+      <div style={{
+        position: 'fixed', left: 0, right: 0, bottom: 0, zIndex: 50,
+        background: 'var(--bg2)', borderRadius: '20px 20px 0 0',
+        border: '1px solid var(--border)', maxHeight: '75vh',
+        display: 'flex', flexDirection: 'column', overflow: 'hidden',
+      }}>
+        {/* Handle */}
+        <div style={{ width: 36, height: 4, background: 'var(--text3)', borderRadius: 2, margin: '14px auto 0' }} />
+
+        {/* Header */}
+        <div style={{ padding: '12px 20px 4px' }}>
+          <div style={{ fontWeight: 700, fontSize: 15 }}>Add to a Trip</div>
+          <div style={{ fontSize: 12, color: 'var(--text2)', marginTop: 2 }}>
+            <span style={{ fontSize: 18 }}>{activity.emoji}</span>{' '}
+            <span style={{ fontWeight: 600 }}>{activity.text}</span>
+          </div>
+        </div>
+
+        <div style={{ overflowY: 'auto', padding: '12px 20px 32px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {/* Create new trip option */}
+          <button
+            onClick={handleCreateNew}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 12,
+              padding: '14px 16px', borderRadius: 12, textAlign: 'left', cursor: 'pointer',
+              background: 'var(--gold-dim)', border: '1px solid var(--gold)',
+            }}
+          >
+            <div style={{
+              width: 44, height: 44, borderRadius: 10, flexShrink: 0,
+              background: 'var(--gold)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 22,
+            }}>✨</div>
+            <div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--gold)' }}>Create New Trip</div>
+              <div style={{ fontSize: 12, color: 'var(--text2)', marginTop: 2 }}>
+                Start a fresh trip with this activity
+              </div>
+            </div>
+          </button>
+
+          {/* Divider */}
+          {myTrips.length > 0 && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '2px 0' }}>
+              <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+              <span style={{ fontSize: 11, color: 'var(--text3)', fontWeight: 600 }}>MY TRIPS</span>
+              <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+            </div>
+          )}
+
+          {/* My trips list */}
+          {myTrips.length === 0 ? (
+            <div style={{ textAlign: 'center', fontSize: 12, color: 'var(--text3)', padding: '12px 0' }}>
+              No trips yet — create one above
+            </div>
+          ) : (
+            myTrips.map(trip => (
+              <button
+                key={trip.id}
+                onClick={() => handleAddToTrip(trip)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 12,
+                  padding: 12, borderRadius: 12, textAlign: 'left', cursor: 'pointer',
+                  background: 'var(--bg3)', border: '1px solid var(--border)',
+                }}
+              >
+                {/* Cover thumb */}
+                <div style={{ position: 'relative', width: 52, height: 52, borderRadius: 8, overflow: 'hidden', flexShrink: 0 }}>
+                  {trip.cover_image_url
+                    ? <Image src={trip.cover_image_url} alt={trip.title} fill style={{ objectFit: 'cover' }} />
+                    : <div style={{ width: '100%', height: '100%', background: 'var(--bg2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>{trip.country_emoji}</div>
+                  }
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {trip.title}
+                  </div>
+                  <div style={{ fontSize: 12, color: 'var(--text2)', marginTop: 2 }}>
+                    {trip.country_emoji} {trip.location} · {trip.duration_days}d
+                  </div>
+                </div>
+                <div style={{
+                  width: 28, height: 28, borderRadius: '50%', flexShrink: 0,
+                  background: 'var(--gold)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="#0B0B14" strokeWidth="2.5" width="12" height="12">
+                    <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
+                  </svg>
+                </div>
+              </button>
+            ))
+          )}
+        </div>
+      </div>
+    </>
+  )
+}
+
+// ─── Main Detail component ──────────────────────────────────────
 
 function Detail({ trip }: Props) {
   const router = useRouter()
   const { showToast } = useToast()
-  const { likedIds, savedIds, followingIds, toggleLike, toggleSave, toggleFollow, saveActivity } = useAppState()
+  const { likedIds, savedIds, followingIds, toggleLike, toggleSave, toggleFollow } = useAppState()
 
   const liked     = likedIds.has(trip.id)
   const saved     = savedIds.has(trip.id)
   const following = followingIds.has(trip.author.id)
 
-  const [openDays, setOpenDays] = useState<Set<string>>(new Set([trip.days[0]?.id]))
-  const filled = starsFilled(trip.rating)
+  const [openDays,       setOpenDays]       = useState<Set<string>>(new Set([trip.days[0]?.id]))
+  const [addingActivity, setAddingActivity] = useState<DraftActivity | null>(null)
 
+  const filled    = starsFilled(trip.rating)
   const dateStr   = formatDateRange(trip.start_date, trip.end_date)
   const seasonStr = trip.season ? SEASON_LABELS[trip.season] : null
 
@@ -58,7 +200,7 @@ function Detail({ trip }: Props) {
 
   return (
     <div className="flex flex-col flex-1 overflow-y-auto no-scrollbar pb-6">
-      {/* Hero */}
+      {/* ── Hero ─────────────────────────────────────── */}
       <div className="relative h-[280px] flex-shrink-0">
         {trip.cover_image_url && (
           <Image src={trip.cover_image_url} alt={trip.title} fill className="object-cover" priority />
@@ -123,8 +265,9 @@ function Detail({ trip }: Props) {
         </div>
       </div>
 
-      {/* Body */}
+      {/* ── Body ─────────────────────────────────────── */}
       <div className="px-5 pt-5">
+
         {/* Date row */}
         {dateStr && (
           <div className="flex items-center gap-2 mb-4 text-xs" style={{ color: 'var(--text2)' }}>
@@ -132,7 +275,7 @@ function Detail({ trip }: Props) {
               <rect x="3" y="4" width="18" height="18" rx="2" /><line x1="16" y1="2" x2="16" y2="6" />
               <line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" />
             </svg>
-            <span>{dateStr}</span>
+            {dateStr}
           </div>
         )}
 
@@ -161,7 +304,7 @@ function Detail({ trip }: Props) {
           )}
         </div>
 
-        {/* Rating row — no template button */}
+        {/* Rating row */}
         <div className="flex items-center gap-4 rounded-[10px] p-4 my-5"
           style={{ background: 'var(--bg3)', border: '1px solid var(--border)' }}>
           <div className="font-head text-[42px] leading-none" style={{ color: 'var(--gold)' }}>
@@ -201,7 +344,8 @@ function Detail({ trip }: Props) {
         <div className="flex items-center gap-2 mb-5">
           {[32, 9, 15].map((img, i) => (
             <Image key={i} src={`https://i.pravatar.cc/64?img=${img}`} alt="" width={32} height={32}
-              className="rounded-full object-cover" style={{ marginLeft: i > 0 ? '-8px' : 0, border: '2px solid var(--bg)' }} />
+              className="rounded-full object-cover"
+              style={{ marginLeft: i > 0 ? '-8px' : 0, border: '2px solid var(--bg)' }} />
           ))}
           <span className="text-xs ml-2" style={{ color: 'var(--text2)' }}>
             <span style={{ color: 'var(--text)', fontWeight: 500 }}>Alex, Priya, Tom</span> and {Math.max(0, trip.rating_count - 3)} others rated this
@@ -211,10 +355,12 @@ function Detail({ trip }: Props) {
         {/* Itinerary */}
         <div className="flex items-center justify-between mb-2">
           <h2 className="text-[16px] font-bold">Itinerary</h2>
-          <div className="text-[10px] px-2 py-0.5 rounded-full" style={{ background: 'var(--bg3)', color: 'var(--text2)', border: '1px solid var(--border)' }}>
-            Tap + to copy stops to your trip
+          <div className="text-[10px] px-2 py-0.5 rounded-full"
+            style={{ background: 'var(--bg3)', color: 'var(--text2)', border: '1px solid var(--border)' }}>
+            Tap + to add stops to your trip
           </div>
         </div>
+
         <div>
           {trip.days.map(day => (
             <div key={day.id}>
@@ -232,35 +378,44 @@ function Detail({ trip }: Props) {
                   <div className="text-xs mt-0.5" style={{ color: 'var(--text2)' }}>{day.activities.length} stops</div>
                 </div>
                 <svg
-                  style={{ color: 'var(--text3)', transform: openDays.has(day.id) ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}
+                  style={{
+                    color: 'var(--text3)',
+                    transform: openDays.has(day.id) ? 'rotate(180deg)' : 'none',
+                    transition: 'transform 0.2s',
+                  }}
                   viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="18" height="18">
                   <polyline points="6 9 12 15 18 9" />
                 </svg>
               </button>
+
               {openDays.has(day.id) && (
                 <div className="pb-2 pl-11">
                   {day.activities.map(act => (
-                    <div key={act.id} className="flex gap-3 py-2.5 relative items-start"
-                      style={{ borderLeft: '1px solid var(--border)', paddingLeft: '16px', marginLeft: '-16px' }}>
-                      <div className="absolute left-[-4px] top-4 w-2 h-2 rounded-full" style={{ background: 'var(--gold)' }} />
+                    <div
+                      key={act.id}
+                      className="flex gap-3 py-2.5 relative items-start"
+                      style={{ borderLeft: '1px solid var(--border)', paddingLeft: '16px', marginLeft: '-16px' }}
+                    >
+                      <div className="absolute left-[-4px] top-4 w-2 h-2 rounded-full"
+                        style={{ background: 'var(--gold)' }} />
                       <div className="flex-1">
-                        <div className="text-[10px] font-semibold uppercase tracking-wide mb-0.5" style={{ color: 'var(--gold)' }}>
+                        <div className="text-[10px] font-semibold uppercase tracking-wide mb-0.5"
+                          style={{ color: 'var(--gold)' }}>
                           {act.emoji} {act.type}
                         </div>
                         <div className="text-sm font-semibold">{act.text}</div>
-                        {act.notes && <div className="text-xs mt-0.5" style={{ color: 'var(--text2)' }}>{act.notes}</div>}
+                        {act.notes && (
+                          <div className="text-xs mt-0.5" style={{ color: 'var(--text2)' }}>{act.notes}</div>
+                        )}
                       </div>
-                      {/* Copy to my trip button */}
+                      {/* Add to my trip */}
                       <button
-                        onClick={() => {
-                          saveActivity({ emoji: act.emoji, text: act.text, type: act.type })
-                          showToast(`📋 "${act.text}" saved to clipboard`)
-                        }}
-                        className="flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center transition-colors mt-0.5"
+                        onClick={() => setAddingActivity({ emoji: act.emoji, text: act.text, type: act.type })}
+                        className="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center transition-all mt-0.5 active:scale-90"
                         style={{ background: 'var(--gold-dim)', border: '1px solid var(--gold)', color: 'var(--gold)' }}
                         title="Add to my trip"
                       >
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" width="10" height="10">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" width="11" height="11">
                           <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
                         </svg>
                       </button>
@@ -272,6 +427,14 @@ function Detail({ trip }: Props) {
           ))}
         </div>
       </div>
+
+      {/* Add-to-trip sheet */}
+      {addingActivity && (
+        <AddToTripSheet
+          activity={addingActivity}
+          onClose={() => setAddingActivity(null)}
+        />
+      )}
     </div>
   )
 }

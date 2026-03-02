@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, useEffect } from 'react'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { useToast } from '@/components/ui/Toast'
@@ -115,66 +115,6 @@ function SuggestSheet({ onAdd, onClose }: {
   )
 }
 
-// ─── Saved Activities Sheet ─────────────────────────────────────
-
-function SavedActivitiesSheet({ savedActivities, onAdd, onRemove, onClose }: {
-  savedActivities: DraftActivity[]
-  onAdd: (act: DraftActivity) => void
-  onRemove: (i: number) => void
-  onClose: () => void
-}) {
-  return (
-    <>
-      <div style={OVERLAY_BG} onClick={onClose} />
-      <div style={{ ...SHEET_STYLE, maxHeight: '75vh' }}>
-        <div style={HANDLE_STYLE} />
-        <div style={{ padding: '12px 20px 4px', fontWeight: 700, fontSize: 15 }}>Saved from Other Trips</div>
-        <div style={{ padding: '0 20px 12px', fontSize: 12, color: 'var(--text2)' }}>
-          Tap any activity to add it to the day
-        </div>
-        {savedActivities.length === 0 ? (
-          <div style={{ padding: '24px 20px', textAlign: 'center', fontSize: 12, color: 'var(--text3)' }}>
-            No saved activities yet. Tap + on any activity in a trip detail to save it here.
-          </div>
-        ) : (
-          <div style={{ overflowY: 'auto', padding: '0 20px 24px', display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {savedActivities.map((act, i) => (
-              <div key={i} style={{
-                display: 'flex', alignItems: 'center', gap: 10,
-                padding: '10px 12px', borderRadius: 10,
-                background: 'var(--bg3)', border: '1px solid var(--border)',
-              }}>
-                <span style={{ fontSize: 22, flexShrink: 0 }}>{act.emoji}</span>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 13, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {act.text}
-                  </div>
-                  <div style={{ fontSize: 10, color: 'var(--gold)', marginTop: 1 }}>{act.type}</div>
-                </div>
-                <button
-                  onClick={() => { onAdd(act); onRemove(i); onClose() }}
-                  style={{
-                    fontSize: 11, fontWeight: 700, padding: '5px 12px', borderRadius: 20, flexShrink: 0,
-                    background: 'var(--gold)', color: '#0B0B14', border: 'none', cursor: 'pointer',
-                  }}
-                >
-                  + Add
-                </button>
-                <button
-                  onClick={() => onRemove(i)}
-                  style={{ fontSize: 12, color: 'var(--text3)', background: 'none', border: 'none', cursor: 'pointer', padding: 4, flexShrink: 0 }}
-                >
-                  ✕
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    </>
-  )
-}
-
 // ─── Friend Picker ─────────────────────────────────────────────
 
 function FriendPicker({ onSelect, onClose }: {
@@ -238,9 +178,7 @@ function DayBuilder({ days, onChange }: {
   days: DraftDay[]
   onChange: (days: DraftDay[]) => void
 }) {
-  const { savedActivities, removeActivity } = useAppState()
   const [suggestForDay, setSuggestForDay] = useState<number | null>(null)
-  const [savedForDay,   setSavedForDay]   = useState<number | null>(null)
 
   const dragRef  = useRef<{ dayI: number; actI: number } | null>(null)
   const ghostRef = useRef<HTMLDivElement | null>(null)
@@ -358,25 +296,14 @@ function DayBuilder({ days, onChange }: {
               </div>
             ))}
 
-            {/* Add stop buttons */}
-            <div style={{ display: 'flex', gap: 6, marginTop: 4 }}>
-              <button
-                onClick={() => setSuggestForDay(dayI)}
-                style={{
-                  flex: 1, fontSize: 12, fontWeight: 700, padding: '8px 0', borderRadius: 8,
-                  border: '1px dashed var(--gold)', color: 'var(--gold)', background: 'var(--gold-dim)', cursor: 'pointer',
-                }}
-              >+ Add Stop</button>
-              {savedActivities.length > 0 && (
-                <button
-                  onClick={() => setSavedForDay(dayI)}
-                  style={{
-                    fontSize: 12, fontWeight: 700, padding: '8px 12px', borderRadius: 8, flexShrink: 0,
-                    border: '1px dashed var(--border)', color: 'var(--text2)', background: 'var(--bg2)', cursor: 'pointer',
-                  }}
-                >📋 {savedActivities.length}</button>
-              )}
-            </div>
+            {/* Add stop button */}
+            <button
+              onClick={() => setSuggestForDay(dayI)}
+              style={{
+                fontSize: 12, fontWeight: 700, padding: '8px 0', borderRadius: 8, width: '100%', marginTop: 4,
+                border: '1px dashed var(--gold)', color: 'var(--gold)', background: 'var(--gold-dim)', cursor: 'pointer',
+              }}
+            >+ Add Stop</button>
           </div>
         </div>
       ))}
@@ -393,14 +320,6 @@ function DayBuilder({ days, onChange }: {
         <SuggestSheet
           onAdd={act => addActivity(suggestForDay, act)}
           onClose={() => setSuggestForDay(null)}
-        />
-      )}
-      {savedForDay !== null && (
-        <SavedActivitiesSheet
-          savedActivities={savedActivities}
-          onAdd={act => addActivity(savedForDay, act)}
-          onRemove={i => removeActivity(i)}
-          onClose={() => setSavedForDay(null)}
         />
       )}
     </div>
@@ -551,8 +470,8 @@ function PublishScreen({ basics, days, onPublish }: { basics: Basics; days: Draf
 
 export default function CreateFlow() {
   const router    = useRouter()
-  const { showToast }    = useToast()
-  const { publishTrip }  = useAppState()
+  const { showToast }                         = useToast()
+  const { publishTrip, pendingActivity, setPendingActivity } = useAppState()
 
   const [step,             setStep]             = useState<Step>('mode')
   const [showFriendPicker, setShowFriendPicker] = useState(false)
@@ -567,6 +486,17 @@ export default function CreateFlow() {
     season: '',
   })
   const [days, setDays] = useState<DraftDay[]>([{ title: 'Day 1', activities: [] }])
+
+  // If we arrived here from "Add to my trip → Create New Trip", pre-seed the activity
+  useEffect(() => {
+    if (pendingActivity) {
+      setDays([{ title: 'Day 1', activities: [pendingActivity] }])
+      setPendingActivity(null)
+      setStep('basics')
+      showToast(`✦ "${pendingActivity.text}" added to Day 1`)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const handleDaysChange = useCallback((next: DraftDay[]) => {
     setDays(next)
