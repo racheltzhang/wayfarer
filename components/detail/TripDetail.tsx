@@ -180,8 +180,9 @@ function Detail({ trip }: Props) {
   const [addingActivity, setAddingActivity] = useState<DraftActivity | null>(null)
 
   const filled    = starsFilled(trip.rating)
-  const dateStr   = formatDateRange(trip.start_date, trip.end_date)
-  const seasonStr = trip.season ? SEASON_LABELS[trip.season] : null
+  const exactDateStr = formatDateRange(trip.start_date, trip.end_date)
+  const dateStr      = exactDateStr ?? (trip.approx_date_label ? `Around ${trip.approx_date_label}` : null)
+  const seasonStr    = trip.season ? SEASON_LABELS[trip.season] : null
 
   function toggleDay(id: string) {
     setOpenDays(prev => {

@@ -53,6 +53,7 @@ export interface Trip {
   start_date?: string | null
   end_date?: string | null
   season?: Season | null
+  approx_date_label?: string | null  // e.g. "Around March 2026, ~2 weeks"
   // viewer-specific state
   is_liked?: boolean
   is_saved?: boolean
