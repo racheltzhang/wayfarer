@@ -4,20 +4,31 @@ import { useState, useRef, useCallback } from 'react'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { useToast } from '@/components/ui/Toast'
-import { MOCK_TRIPS, ACTIVITY_SUGGESTIONS } from '@/lib/mock-data'
-import type { ActivityType, DraftDay, DraftActivity } from '@/lib/types'
+import { useAppState } from '@/lib/app-state'
+import { MOCK_TRIPS, MOCK_PROFILES, ACTIVITY_SUGGESTIONS } from '@/lib/mock-data'
+import type { ActivityType, DraftDay, DraftActivity, Season, Trip } from '@/lib/types'
 
 type Step = 'mode' | 'basics' | 'days' | 'publish'
 
+const SEASONS: { value: Season; label: string; emoji: string }[] = [
+  { value: 'spring',  label: 'Spring',  emoji: '🌸' },
+  { value: 'summer',  label: 'Summer',  emoji: '☀️' },
+  { value: 'autumn',  label: 'Autumn',  emoji: '🍂' },
+  { value: 'winter',  label: 'Winter',  emoji: '❄️' },
+]
+
 interface Basics {
-  title: string
-  location: string
-  description: string
-  visibility: 'public' | 'friends' | 'private'
+  title:         string
+  location:      string
+  description:   string
+  visibility:    'public' | 'friends' | 'private'
   coverImageUrl: string
+  startDate:     string
+  endDate:       string
+  season:        Season | ''
 }
 
-// ─── Inline overlay helpers ────────────────────────────────────
+// ─── Overlay helpers ───────────────────────────────────────────
 
 const OVERLAY_BG: React.CSSProperties = {
   position: 'fixed', inset: 0, zIndex: 40,
@@ -64,7 +75,6 @@ function SuggestSheet({ onAdd, onClose }: {
         <div style={HANDLE_STYLE} />
         <div style={{ padding: '12px 20px 8px', fontWeight: 700, fontSize: 15 }}>Add Activity</div>
 
-        {/* Type chips */}
         <div style={{ display: 'flex', gap: 8, overflowX: 'auto', padding: '0 20px 12px' }}>
           {ACTIVITY_TYPES.map(t => (
             <button
@@ -80,7 +90,6 @@ function SuggestSheet({ onAdd, onClose }: {
           ))}
         </div>
 
-        {/* Grid */}
         <div style={{ overflowY: 'auto', padding: '0 20px 24px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
           {filtered.map((s, i) => (
             <button
@@ -101,6 +110,66 @@ function SuggestSheet({ onAdd, onClose }: {
             </button>
           ))}
         </div>
+      </div>
+    </>
+  )
+}
+
+// ─── Saved Activities Sheet ─────────────────────────────────────
+
+function SavedActivitiesSheet({ savedActivities, onAdd, onRemove, onClose }: {
+  savedActivities: DraftActivity[]
+  onAdd: (act: DraftActivity) => void
+  onRemove: (i: number) => void
+  onClose: () => void
+}) {
+  return (
+    <>
+      <div style={OVERLAY_BG} onClick={onClose} />
+      <div style={{ ...SHEET_STYLE, maxHeight: '75vh' }}>
+        <div style={HANDLE_STYLE} />
+        <div style={{ padding: '12px 20px 4px', fontWeight: 700, fontSize: 15 }}>Saved from Other Trips</div>
+        <div style={{ padding: '0 20px 12px', fontSize: 12, color: 'var(--text2)' }}>
+          Tap any activity to add it to the day
+        </div>
+        {savedActivities.length === 0 ? (
+          <div style={{ padding: '24px 20px', textAlign: 'center', fontSize: 12, color: 'var(--text3)' }}>
+            No saved activities yet. Tap + on any activity in a trip detail to save it here.
+          </div>
+        ) : (
+          <div style={{ overflowY: 'auto', padding: '0 20px 24px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {savedActivities.map((act, i) => (
+              <div key={i} style={{
+                display: 'flex', alignItems: 'center', gap: 10,
+                padding: '10px 12px', borderRadius: 10,
+                background: 'var(--bg3)', border: '1px solid var(--border)',
+              }}>
+                <span style={{ fontSize: 22, flexShrink: 0 }}>{act.emoji}</span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {act.text}
+                  </div>
+                  <div style={{ fontSize: 10, color: 'var(--gold)', marginTop: 1 }}>{act.type}</div>
+                </div>
+                <button
+                  onClick={() => { onAdd(act); onRemove(i); onClose() }}
+                  style={{
+                    fontSize: 11, fontWeight: 700, padding: '5px 12px', borderRadius: 20, flexShrink: 0,
+                    background: 'var(--gold)', color: '#0B0B14', border: 'none', cursor: 'pointer',
+                  }}
+                >
+                  + Add
+                </button>
+                <button
+                  onClick={() => onRemove(i)}
+                  style={{ fontSize: 12, color: 'var(--text3)', background: 'none', border: 'none', cursor: 'pointer', padding: 4, flexShrink: 0 }}
+                >
+                  ✕
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </>
   )
@@ -169,10 +238,11 @@ function DayBuilder({ days, onChange }: {
   days: DraftDay[]
   onChange: (days: DraftDay[]) => void
 }) {
+  const { savedActivities, removeActivity } = useAppState()
   const [suggestForDay, setSuggestForDay] = useState<number | null>(null)
+  const [savedForDay,   setSavedForDay]   = useState<number | null>(null)
 
-  // drag state
-  const dragRef = useRef<{ dayI: number; actI: number } | null>(null)
+  const dragRef  = useRef<{ dayI: number; actI: number } | null>(null)
   const ghostRef = useRef<HTMLDivElement | null>(null)
 
   function addDay() {
@@ -187,7 +257,7 @@ function DayBuilder({ days, onChange }: {
   function addActivity(dayI: number, act: DraftActivity) {
     onChange(days.map((d, i) => i === dayI ? { ...d, activities: [...d.activities, act] } : d))
   }
-  function removeActivity(dayI: number, actI: number) {
+  function removeActivity_(dayI: number, actI: number) {
     onChange(days.map((d, i) => {
       if (i !== dayI) return d
       const acts = [...d.activities]
@@ -267,7 +337,6 @@ function DayBuilder({ days, onChange }: {
                 display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px',
                 borderRadius: 8, background: 'var(--bg2)', border: '1px solid var(--border)',
               }}>
-                {/* Drag handle */}
                 <div
                   style={{ cursor: 'grab', color: 'var(--text3)', padding: 4, touchAction: 'none', flexShrink: 0 }}
                   onPointerDown={e => onDragStart(e, dayI, actI)}
@@ -285,16 +354,29 @@ function DayBuilder({ days, onChange }: {
                   <div style={{ fontSize: 12, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{act.text}</div>
                   <div style={{ fontSize: 10, color: 'var(--gold)' }}>{act.type}</div>
                 </div>
-                <button onClick={() => removeActivity(dayI, actI)} style={{ fontSize: 12, color: 'var(--text3)', background: 'none', border: 'none', cursor: 'pointer', padding: 4, flexShrink: 0 }}>✕</button>
+                <button onClick={() => removeActivity_(dayI, actI)} style={{ fontSize: 12, color: 'var(--text3)', background: 'none', border: 'none', cursor: 'pointer', padding: 4, flexShrink: 0 }}>✕</button>
               </div>
             ))}
-            <button
-              onClick={() => setSuggestForDay(dayI)}
-              style={{
-                fontSize: 12, fontWeight: 700, padding: '8px 0', borderRadius: 8, width: '100%',
-                border: '1px dashed var(--gold)', color: 'var(--gold)', background: 'var(--gold-dim)', cursor: 'pointer', marginTop: 4,
-              }}
-            >+ Add Stop</button>
+
+            {/* Add stop buttons */}
+            <div style={{ display: 'flex', gap: 6, marginTop: 4 }}>
+              <button
+                onClick={() => setSuggestForDay(dayI)}
+                style={{
+                  flex: 1, fontSize: 12, fontWeight: 700, padding: '8px 0', borderRadius: 8,
+                  border: '1px dashed var(--gold)', color: 'var(--gold)', background: 'var(--gold-dim)', cursor: 'pointer',
+                }}
+              >+ Add Stop</button>
+              {savedActivities.length > 0 && (
+                <button
+                  onClick={() => setSavedForDay(dayI)}
+                  style={{
+                    fontSize: 12, fontWeight: 700, padding: '8px 12px', borderRadius: 8, flexShrink: 0,
+                    border: '1px dashed var(--border)', color: 'var(--text2)', background: 'var(--bg2)', cursor: 'pointer',
+                  }}
+                >📋 {savedActivities.length}</button>
+              )}
+            </div>
           </div>
         </div>
       ))}
@@ -311,6 +393,14 @@ function DayBuilder({ days, onChange }: {
         <SuggestSheet
           onAdd={act => addActivity(suggestForDay, act)}
           onClose={() => setSuggestForDay(null)}
+        />
+      )}
+      {savedForDay !== null && (
+        <SavedActivitiesSheet
+          savedActivities={savedActivities}
+          onAdd={act => addActivity(savedForDay, act)}
+          onRemove={i => removeActivity(i)}
+          onClose={() => setSavedForDay(null)}
         />
       )}
     </div>
@@ -352,6 +442,35 @@ function BasicsForm({ basics, onChange }: { basics: Basics; onChange: (b: Basics
         <input className="form-input" placeholder="e.g. Kyoto, Japan" value={basics.location}
           onChange={e => onChange({ ...basics, location: e.target.value })} />
       </div>
+
+      {/* Dates */}
+      <div className="flex gap-3">
+        <div className="flex-1">
+          <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--text2)' }}>START DATE</label>
+          <input type="date" className="form-input" value={basics.startDate}
+            onChange={e => onChange({ ...basics, startDate: e.target.value })} />
+        </div>
+        <div className="flex-1">
+          <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--text2)' }}>END DATE</label>
+          <input type="date" className="form-input" value={basics.endDate}
+            onChange={e => onChange({ ...basics, endDate: e.target.value })} />
+        </div>
+      </div>
+
+      {/* Season */}
+      <div>
+        <label className="block text-xs font-semibold mb-2" style={{ color: 'var(--text2)' }}>SEASON</label>
+        <div className="flex gap-2">
+          {SEASONS.map(s => (
+            <button key={s.value} onClick={() => onChange({ ...basics, season: basics.season === s.value ? '' : s.value })}
+              className="chip flex-1 justify-center"
+              style={basics.season === s.value ? { background: 'var(--gold)', color: '#0B0B14', borderColor: 'var(--gold)' } : {}}>
+              {s.emoji} {s.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
       <div>
         <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--text2)' }}>DESCRIPTION</label>
         <textarea className="form-input" style={{ minHeight: 80, resize: 'none' }}
@@ -378,6 +497,10 @@ function BasicsForm({ basics, onChange }: { basics: Basics; onChange: (b: Basics
 
 function PublishScreen({ basics, days, onPublish }: { basics: Basics; days: DraftDay[]; onPublish: () => void }) {
   const total = days.reduce((s, d) => s + d.activities.length, 0)
+  const seasonLabel = basics.season ? SEASONS.find(s => s.value === basics.season) : null
+  const dateStr = basics.startDate && basics.endDate
+    ? `${new Date(basics.startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} – ${new Date(basics.endDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`
+    : null
   return (
     <div className="flex flex-col gap-5">
       <div className="rounded-[14px] overflow-hidden" style={{ border: '1px solid var(--border)' }}>
@@ -391,14 +514,22 @@ function PublishScreen({ basics, days, onPublish }: { basics: Basics; days: Draf
             </div>
           </div>
         )}
-        <div className="p-3 flex gap-4">
-          {[['Days', days.length], ['Stops', total], ['Visibility', basics.visibility]].map(([k, v]) => (
+        <div className="p-3 flex gap-4 flex-wrap">
+          {[
+            ['Days',       days.length],
+            ['Stops',      total],
+            ['Visibility', basics.visibility],
+            ...(seasonLabel ? [['Season', `${seasonLabel.emoji} ${seasonLabel.label}`]] : []),
+          ].map(([k, v]) => (
             <div key={k} className="text-center">
               <div className="text-lg font-bold capitalize" style={{ color: 'var(--gold)' }}>{v}</div>
               <div className="text-[10px]" style={{ color: 'var(--text3)' }}>{k}</div>
             </div>
           ))}
         </div>
+        {dateStr && (
+          <div className="px-3 pb-3 text-xs" style={{ color: 'var(--text2)' }}>📅 {dateStr}</div>
+        )}
       </div>
       <div>
         <h3 className="text-sm font-bold mb-2">Itinerary Summary</h3>
@@ -419,17 +550,21 @@ function PublishScreen({ basics, days, onPublish }: { basics: Basics; days: Draf
 // ─── Main CreateFlow ───────────────────────────────────────────
 
 export default function CreateFlow() {
-  const router = useRouter()
-  const { showToast } = useToast()
+  const router    = useRouter()
+  const { showToast }    = useToast()
+  const { publishTrip }  = useAppState()
 
-  const [step,           setStep]           = useState<Step>('mode')
+  const [step,             setStep]             = useState<Step>('mode')
   const [showFriendPicker, setShowFriendPicker] = useState(false)
-  const [savedAt,        setSavedAt]        = useState<Date | null>(null)
+  const [savedAt,          setSavedAt]          = useState<Date | null>(null)
 
   const [basics, setBasics] = useState<Basics>({
     title: '', location: '', description: '',
     visibility: 'friends',
     coverImageUrl: 'https://picsum.photos/seed/tokyo99/800/500',
+    startDate: '',
+    endDate: '',
+    season: '',
   })
   const [days, setDays] = useState<DraftDay[]>([{ title: 'Day 1', activities: [] }])
 
@@ -445,6 +580,8 @@ export default function CreateFlow() {
       title: `My ${trip.title}`, location: trip.location,
       description: trip.description ?? '', visibility: 'friends',
       coverImageUrl: trip.cover_image_url ?? '',
+      startDate: '', endDate: '',
+      season: (trip.season as Season | '') ?? '',
     })
     setDays(trip.days.map(d => ({
       title: d.title,
@@ -456,6 +593,46 @@ export default function CreateFlow() {
   }
 
   function publish() {
+    const me = MOCK_PROFILES.find(p => p.id === 'me')!
+    const durationDays = basics.startDate && basics.endDate
+      ? Math.max(1, Math.round((new Date(basics.endDate).getTime() - new Date(basics.startDate).getTime()) / 86400000) + 1)
+      : days.length
+
+    const newTrip: Trip = {
+      id:             `trip-pub-${Date.now()}`,
+      title:          basics.title || 'My Trip',
+      location:       basics.location,
+      country_emoji:  '📍',
+      duration_days:  durationDays,
+      cover_image_url: basics.coverImageUrl || null,
+      description:    basics.description || null,
+      visibility:     basics.visibility,
+      rating:         null,
+      rating_count:   0,
+      like_count:     0,
+      tags:           [],
+      author:         me,
+      created_at:     new Date().toISOString().slice(0, 10),
+      start_date:     basics.startDate || null,
+      end_date:       basics.endDate   || null,
+      season:         (basics.season as Season) || null,
+      days: days.map((d, i) => ({
+        id:          `d-pub-${i}`,
+        trip_id:     `trip-pub-${Date.now()}`,
+        title:       d.title,
+        day_number:  i + 1,
+        activities:  d.activities.map((a, j) => ({
+          id:       `a-pub-${i}-${j}`,
+          emoji:    a.emoji,
+          text:     a.text,
+          type:     a.type,
+          notes:    null,
+          position: j,
+        })),
+      })),
+    }
+
+    publishTrip(newTrip)
     showToast('✦ Trip published!')
     setTimeout(() => router.push('/'), 1500)
   }
@@ -464,10 +641,10 @@ export default function CreateFlow() {
   const stepIndex = steps.indexOf(step)
 
   const stepMeta = {
-    mode:    { title: 'New Trip',       subtitle: 'How would you like to start?' },
-    basics:  { title: 'The Basics',     subtitle: 'Tell us about your trip'      },
-    days:    { title: 'Your Itinerary', subtitle: 'Build your day-by-day plan'   },
-    publish: { title: 'Ready to Share?', subtitle: 'Review and publish'          },
+    mode:    { title: 'New Trip',        subtitle: 'How would you like to start?' },
+    basics:  { title: 'The Basics',      subtitle: 'Tell us about your trip'      },
+    days:    { title: 'Your Itinerary',  subtitle: 'Build your day-by-day plan'   },
+    publish: { title: 'Ready to Share?', subtitle: 'Review and publish'           },
   }
 
   return (
@@ -553,7 +730,6 @@ export default function CreateFlow() {
         </div>
       )}
 
-      {/* Friend picker overlay */}
       {showFriendPicker && (
         <FriendPicker
           onSelect={cloneTrip}

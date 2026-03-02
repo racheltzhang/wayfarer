@@ -10,7 +10,6 @@ import { useToast } from '@/components/ui/Toast'
 import type { Profile } from '@/lib/types'
 
 const ME = MOCK_PROFILES.find(p => p.id === 'me')!
-const MY_TRIPS = MOCK_TRIPS.filter(t => t.author.id === 'me')
 const ALL_USERS = MOCK_PROFILES.filter(p => p.id !== 'me')
 
 type Tab = 'trips' | 'saved'
@@ -89,7 +88,7 @@ function UserRow({ user, isFollowing, onToggle }: {
 export default function ProfilePage() {
   const router = useRouter()
   const { showToast } = useToast()
-  const { savedIds, followingIds, toggleFollow } = useAppState()
+  const { savedIds, followingIds, toggleFollow, publishedTrips } = useAppState()
 
   const [tab,   setTab]   = useState<Tab>('trips')
   const [sheet, setSheet] = useState<Sheet>(null)
@@ -99,6 +98,13 @@ export default function ProfilePage() {
 
   const followerUsers  = ALL_USERS
   const followingUsers = ALL_USERS.filter(u => followingIds.has(u.id))
+
+  // My trips = published ones + mock trips authored by me, newest first
+  const mockMyTrips = MOCK_TRIPS.filter(t => t.author.id === 'me')
+  const MY_TRIPS = [
+    ...publishedTrips,
+    ...mockMyTrips.filter(t => !publishedTrips.some(p => p.id === t.id)),
+  ]
 
   const savedTrips   = MOCK_TRIPS.filter(t => savedIds.has(t.id))
   const displayTrips = tab === 'trips' ? MY_TRIPS : savedTrips
@@ -150,7 +156,7 @@ export default function ProfilePage() {
         {/* Stats */}
         <div className="flex-1 flex justify-around">
           {[
-            { label: 'Trips',     value: MY_TRIPS.length || ME.trip_count, onClick: undefined },
+            { label: 'Trips',     value: MY_TRIPS.length, onClick: undefined },
             { label: 'Followers', value: followerCount,  onClick: () => setSheet('followers') },
             { label: 'Following', value: followingCount, onClick: () => setSheet('following') },
           ].map(s => (

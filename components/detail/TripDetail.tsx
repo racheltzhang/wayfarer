@@ -3,7 +3,6 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
-import Link from 'next/link'
 import type { Trip } from '@/lib/types'
 import { formatRating, starsFilled } from '@/lib/utils'
 import { useToast, ToastProvider } from '@/components/ui/Toast'
@@ -11,10 +10,26 @@ import { AppStateProvider, useAppState } from '@/lib/app-state'
 
 interface Props { trip: Trip }
 
+const SEASON_LABELS: Record<string, string> = {
+  spring: '🌸 Spring',
+  summer: '☀️ Summer',
+  autumn: '🍂 Autumn',
+  winter: '❄️ Winter',
+}
+
+function formatDateRange(start?: string | null, end?: string | null) {
+  if (!start && !end) return null
+  const fmt = (s: string) => new Date(s).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+  if (start && end) return `${fmt(start)} – ${fmt(end)}`
+  if (start) return `From ${fmt(start)}`
+  if (end)   return `Until ${fmt(end)}`
+  return null
+}
+
 function Detail({ trip }: Props) {
   const router = useRouter()
   const { showToast } = useToast()
-  const { likedIds, savedIds, followingIds, toggleLike, toggleSave, toggleFollow } = useAppState()
+  const { likedIds, savedIds, followingIds, toggleLike, toggleSave, toggleFollow, saveActivity } = useAppState()
 
   const liked     = likedIds.has(trip.id)
   const saved     = savedIds.has(trip.id)
@@ -22,6 +37,9 @@ function Detail({ trip }: Props) {
 
   const [openDays, setOpenDays] = useState<Set<string>>(new Set([trip.days[0]?.id]))
   const filled = starsFilled(trip.rating)
+
+  const dateStr   = formatDateRange(trip.start_date, trip.end_date)
+  const seasonStr = trip.season ? SEASON_LABELS[trip.season] : null
 
   function toggleDay(id: string) {
     setOpenDays(prev => {
@@ -90,7 +108,7 @@ function Detail({ trip }: Props) {
             {trip.country_emoji} {trip.location}
           </div>
           <h1 className="font-head text-[28px] font-normal leading-tight mb-2">{trip.title}</h1>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-4 flex-wrap">
             <div className="flex items-center gap-1.5 text-xs" style={{ color: 'var(--text2)' }}>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="13" height="13">
                 <rect x="3" y="4" width="18" height="18" rx="2" /><line x1="16" y1="2" x2="16" y2="6" />
@@ -98,12 +116,26 @@ function Detail({ trip }: Props) {
               </svg>
               {trip.duration_days} days
             </div>
+            {seasonStr && (
+              <div className="text-xs" style={{ color: 'var(--text2)' }}>{seasonStr}</div>
+            )}
           </div>
         </div>
       </div>
 
       {/* Body */}
       <div className="px-5 pt-5">
+        {/* Date row */}
+        {dateStr && (
+          <div className="flex items-center gap-2 mb-4 text-xs" style={{ color: 'var(--text2)' }}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="13" height="13">
+              <rect x="3" y="4" width="18" height="18" rx="2" /><line x1="16" y1="2" x2="16" y2="6" />
+              <line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" />
+            </svg>
+            <span>{dateStr}</span>
+          </div>
+        )}
+
         {/* Author row */}
         <div className="flex items-center gap-3 py-4" style={{ borderBottom: '1px solid var(--border)' }}>
           {trip.author.avatar_url && (
@@ -129,7 +161,7 @@ function Detail({ trip }: Props) {
           )}
         </div>
 
-        {/* Rating row */}
+        {/* Rating row — no template button */}
         <div className="flex items-center gap-4 rounded-[10px] p-4 my-5"
           style={{ background: 'var(--bg3)', border: '1px solid var(--border)' }}>
           <div className="font-head text-[42px] leading-none" style={{ color: 'var(--gold)' }}>
@@ -143,12 +175,6 @@ function Detail({ trip }: Props) {
             </div>
             <div className="text-xs" style={{ color: 'var(--text2)' }}>Based on {trip.rating_count} ratings</div>
           </div>
-          <Link href="/create">
-            <button className="text-xs font-bold px-4 py-2.5 rounded-[10px] leading-snug text-center"
-              style={{ background: 'var(--gold)', color: '#0B0B14' }}>
-              Use as<br />Template
-            </button>
-          </Link>
         </div>
 
         {trip.description && (
@@ -178,12 +204,17 @@ function Detail({ trip }: Props) {
               className="rounded-full object-cover" style={{ marginLeft: i > 0 ? '-8px' : 0, border: '2px solid var(--bg)' }} />
           ))}
           <span className="text-xs ml-2" style={{ color: 'var(--text2)' }}>
-            <span style={{ color: 'var(--text)', fontWeight: 500 }}>Alex, Priya, Tom</span> and {trip.rating_count - 3} others rated this
+            <span style={{ color: 'var(--text)', fontWeight: 500 }}>Alex, Priya, Tom</span> and {Math.max(0, trip.rating_count - 3)} others rated this
           </span>
         </div>
 
         {/* Itinerary */}
-        <h2 className="text-[16px] font-bold mb-2">Itinerary</h2>
+        <div className="flex items-center justify-between mb-2">
+          <h2 className="text-[16px] font-bold">Itinerary</h2>
+          <div className="text-[10px] px-2 py-0.5 rounded-full" style={{ background: 'var(--bg3)', color: 'var(--text2)', border: '1px solid var(--border)' }}>
+            Tap + to copy stops to your trip
+          </div>
+        </div>
         <div>
           {trip.days.map(day => (
             <div key={day.id}>
@@ -209,16 +240,30 @@ function Detail({ trip }: Props) {
               {openDays.has(day.id) && (
                 <div className="pb-2 pl-11">
                   {day.activities.map(act => (
-                    <div key={act.id} className="flex gap-3 py-2.5 relative"
+                    <div key={act.id} className="flex gap-3 py-2.5 relative items-start"
                       style={{ borderLeft: '1px solid var(--border)', paddingLeft: '16px', marginLeft: '-16px' }}>
                       <div className="absolute left-[-4px] top-4 w-2 h-2 rounded-full" style={{ background: 'var(--gold)' }} />
-                      <div>
+                      <div className="flex-1">
                         <div className="text-[10px] font-semibold uppercase tracking-wide mb-0.5" style={{ color: 'var(--gold)' }}>
                           {act.emoji} {act.type}
                         </div>
                         <div className="text-sm font-semibold">{act.text}</div>
                         {act.notes && <div className="text-xs mt-0.5" style={{ color: 'var(--text2)' }}>{act.notes}</div>}
                       </div>
+                      {/* Copy to my trip button */}
+                      <button
+                        onClick={() => {
+                          saveActivity({ emoji: act.emoji, text: act.text, type: act.type })
+                          showToast(`📋 "${act.text}" saved to clipboard`)
+                        }}
+                        className="flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center transition-colors mt-0.5"
+                        style={{ background: 'var(--gold-dim)', border: '1px solid var(--gold)', color: 'var(--gold)' }}
+                        title="Add to my trip"
+                      >
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" width="10" height="10">
+                          <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
+                        </svg>
+                      </button>
                     </div>
                   ))}
                 </div>
@@ -226,10 +271,6 @@ function Detail({ trip }: Props) {
             </div>
           ))}
         </div>
-
-        <Link href="/create">
-          <button className="btn-primary mt-6">✦ Create My Version of This Trip</button>
-        </Link>
       </div>
     </div>
   )

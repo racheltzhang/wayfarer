@@ -31,6 +31,8 @@ export interface Day {
   activities: Activity[]
 }
 
+export type Season = 'spring' | 'summer' | 'autumn' | 'winter'
+
 export interface Trip {
   id: string
   title: string
@@ -47,6 +49,10 @@ export interface Trip {
   days: Day[]
   author: Profile
   created_at: string
+  // dates & season
+  start_date?: string | null
+  end_date?: string | null
+  season?: Season | null
   // viewer-specific state
   is_liked?: boolean
   is_saved?: boolean

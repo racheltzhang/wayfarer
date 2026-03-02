@@ -20,14 +20,20 @@ const TABS: { id: FeedTab; label: string }[] = [
 export default function FeedPage() {
   const [tab,   setTab]   = useState<FeedTab>('forYou')
   const [query, setQuery] = useState('')
-  const { likedIds, savedIds, followingIds } = useAppState()
+  const { likedIds, savedIds, followingIds, publishedTrips } = useAppState()
+
+  // Merge published trips (newest first) with mock trips, de-duping by id
+  const allTrips = [
+    ...publishedTrips,
+    ...MOCK_TRIPS.filter(t => !publishedTrips.some(p => p.id === t.id)),
+  ]
 
   const base = (() => {
     switch (tab) {
-      case 'following': return MOCK_TRIPS.filter(t => followingIds.has(t.author.id))
-      case 'saved':     return MOCK_TRIPS.filter(t => savedIds.has(t.id))
-      case 'liked':     return MOCK_TRIPS.filter(t => likedIds.has(t.id))
-      default:          return MOCK_TRIPS
+      case 'following': return allTrips.filter(t => followingIds.has(t.author.id) || t.author.id === 'me')
+      case 'saved':     return allTrips.filter(t => savedIds.has(t.id))
+      case 'liked':     return allTrips.filter(t => likedIds.has(t.id))
+      default:          return allTrips
     }
   })()
 
