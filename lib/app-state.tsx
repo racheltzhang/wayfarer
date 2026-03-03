@@ -9,6 +9,8 @@ interface AppState {
   beenIds:             Set<string>
   followingIds:        Set<string>
   publishedTrips:      Trip[]
+  // per-trip photos (tripId → array of image URLs)
+  tripPhotos:          Record<string, string[]>
   // activities added to specific trips (tripId → DraftActivity[])
   tripAdditions:       Record<string, DraftActivity[]>
   // activity queued to be pre-loaded into a new trip from CreateFlow
@@ -18,6 +20,8 @@ interface AppState {
   toggleBeen:          (tripId: string) => void
   toggleFollow:        (userId: string) => void
   publishTrip:         (trip: Trip) => void
+  updateTrip:          (trip: Trip) => void
+  addPhotosToTrip:     (tripId: string, photos: string[]) => void
   addActivityToTrip:   (tripId: string, act: DraftActivity) => void
   setPendingActivity:  (act: DraftActivity | null) => void
 }
@@ -30,6 +34,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   const [beenIds,         setBeenIds]         = useState<Set<string>>(new Set(['trip-1', 'trip-me-1']))
   const [followingIds,    setFollowingIds]    = useState<Set<string>>(new Set(['u1', 'u2']))
   const [publishedTrips,  setPublishedTrips]  = useState<Trip[]>([])
+  const [tripPhotos,      setTripPhotos]      = useState<Record<string, string[]>>({})
   const [tripAdditions,   setTripAdditions]   = useState<Record<string, DraftActivity[]>>({})
   const [pendingActivity, setPendingActivity] = useState<DraftActivity | null>(null)
 
@@ -52,6 +57,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       beenIds,
       followingIds,
       publishedTrips,
+      tripPhotos,
       tripAdditions,
       pendingActivity,
       toggleLike:    id  => toggle(likedIds,     setLikedIds,     id),
@@ -59,6 +65,12 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       toggleBeen:    id  => toggle(beenIds,      setBeenIds,      id),
       toggleFollow:  id  => toggle(followingIds, setFollowingIds, id),
       publishTrip:   trip => setPublishedTrips(prev => [trip, ...prev]),
+      updateTrip:    trip => setPublishedTrips(prev => prev.map(t => t.id === trip.id ? trip : t)),
+      addPhotosToTrip: (tripId, photos) =>
+        setTripPhotos(prev => ({
+          ...prev,
+          [tripId]: [...(prev[tripId] ?? []), ...photos],
+        })),
       addActivityToTrip: (tripId, act) =>
         setTripAdditions(prev => ({
           ...prev,

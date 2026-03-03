@@ -43,24 +43,48 @@ function formatDates(trip: Trip): string | null {
 
 // ─── My Trip Card ───────────────────────────────────────────────
 function MyTripCard({ trip }: { trip: Trip }) {
+  const { beenIds, tripPhotos } = useAppState()
+  const router = useRouter()
   const dateStr    = formatDates(trip)
-  const extraPhotos = getExtraPhotos(trip)
+  const isPast = beenIds.has(trip.id)
+    || (trip.end_date ? new Date(trip.end_date) < new Date() : false)
+    || (trip.start_date ? new Date(trip.start_date) < new Date() : false)
+  const isUpcoming = !isPast && (
+    (trip.start_date ? new Date(trip.start_date) > new Date() : false)
+    || (trip.approx_date_label != null && !isPast)
+  )
+
+  // Photos: use user-added photos first, then fake ones only for past trips
+  const userPhotos = tripPhotos[trip.id] ?? []
+  const fakePhotos = isPast ? getExtraPhotos(trip) : []
+  const displayPhotos = userPhotos.length > 0 ? userPhotos : fakePhotos
 
   return (
-    <Link href={`/trip/${trip.id}`}>
-      <div
-        className="rounded-[14px] overflow-hidden mb-3 active:scale-[0.98] transition-transform"
-        style={{ background: 'var(--bg3)', border: '1px solid var(--border)' }}
-      >
-        {/* Cover photo */}
-        {trip.cover_image_url && (
+    <div
+      className="rounded-[14px] overflow-hidden mb-3"
+      style={{ background: 'var(--bg3)', border: '1px solid var(--border)' }}
+    >
+      {/* Cover photo */}
+      {trip.cover_image_url && (
+        <Link href={`/trip/${trip.id}`}>
           <div className="relative w-full" style={{ height: 180 }}>
             <Image src={trip.cover_image_url} alt={trip.title} fill className="object-cover" />
-            {/* gradient */}
             <div style={{
               position: 'absolute', inset: 0,
               background: 'linear-gradient(to bottom, transparent 50%, rgba(11,11,20,0.5) 100%)',
             }} />
+            {/* Upcoming banner */}
+            {isUpcoming && (
+              <div style={{
+                position: 'absolute', top: 10, left: 10,
+                background: 'rgba(11,11,20,0.8)', backdropFilter: 'blur(8px)',
+                borderRadius: 8, padding: '3px 8px',
+                fontSize: 11, fontWeight: 700, color: 'var(--gold)',
+                border: '1px solid rgba(212,175,55,0.3)',
+              }}>
+                ✈️ Upcoming
+              </div>
+            )}
             {/* Rating badge */}
             <div
               className="absolute top-3 right-3 flex items-center gap-1 text-xs font-bold rounded-full px-2.5 py-1"
@@ -69,56 +93,94 @@ function MyTripCard({ trip }: { trip: Trip }) {
               ★ {formatRating(trip.rating)}
             </div>
           </div>
-        )}
+        </Link>
+      )}
 
-        {/* Text content */}
-        <div className="px-4 pt-3 pb-1">
-          {/* Title */}
-          <h3 className="font-head text-[17px] leading-snug mb-1">{trip.title}</h3>
-
-          {/* Location + duration */}
-          <div className="flex items-center gap-1.5 text-xs mb-1.5" style={{ color: 'var(--text2)' }}>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="11" height="11" style={{ flexShrink: 0, color: 'var(--gold)' }}>
-              <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>
+      {/* Text content */}
+      <div className="px-4 pt-3 pb-1">
+        {/* Title row + edit button */}
+        <div className="flex items-start justify-between gap-2 mb-1">
+          <Link href={`/trip/${trip.id}`}>
+            <h3 className="font-head text-[17px] leading-snug">{trip.title}</h3>
+          </Link>
+          <button
+            className="flex-shrink-0 flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full transition-colors mt-0.5"
+            style={{ background: 'var(--bg2)', border: '1px solid var(--border)', color: 'var(--text2)' }}
+            onClick={() => router.push(`/create?edit=${trip.id}`)}
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="11" height="11">
+              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
             </svg>
-            <span style={{ fontWeight: 500 }}>{trip.location}</span>
-            <span style={{ color: 'var(--text3)' }}>·</span>
-            <span style={{ color: 'var(--text3)' }}>{trip.duration_days}d</span>
-          </div>
-
-          {/* Date */}
-          {dateStr && (
-            <div className="flex items-center gap-1 text-xs mb-2" style={{ color: 'var(--text3)' }}>
-              <span>📅</span>
-              <span>{dateStr}</span>
-            </div>
-          )}
-
-          {/* Tags */}
-          {trip.tags.length > 0 && (
-            <div className="flex gap-1.5 flex-wrap mb-2">
-              {trip.tags.slice(0, 4).map(tag => (
-                <span key={tag} className="chip text-[11px] py-0.5">#{tag}</span>
-              ))}
-            </div>
-          )}
+            Edit
+          </button>
         </div>
 
-        {/* Extra photo strip */}
+        {/* Location + duration */}
+        <div className="flex items-center gap-1.5 text-xs mb-1.5" style={{ color: 'var(--text2)' }}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="11" height="11" style={{ flexShrink: 0, color: 'var(--gold)' }}>
+            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>
+          </svg>
+          <span style={{ fontWeight: 500 }}>{trip.location}</span>
+          <span style={{ color: 'var(--text3)' }}>·</span>
+          <span style={{ color: 'var(--text3)' }}>{trip.duration_days}d</span>
+        </div>
+
+        {/* Date */}
+        {dateStr && (
+          <div className="flex items-center gap-1 text-xs mb-2" style={{ color: 'var(--text3)' }}>
+            <span>📅</span>
+            <span>{dateStr}</span>
+          </div>
+        )}
+
+        {/* Tags */}
+        {trip.tags.length > 0 && (
+          <div className="flex gap-1.5 flex-wrap mb-2">
+            {trip.tags.slice(0, 4).map(tag => (
+              <span key={tag} className="chip text-[11px] py-0.5">#{tag}</span>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Photo strip — only for past trips */}
+      {isPast && displayPhotos.length > 0 && (
         <div className="flex gap-2 overflow-x-auto no-scrollbar px-4 pb-3">
-          {extraPhotos.map((url, i) => (
+          {displayPhotos.slice(0, 6).map((url, i) => (
             <div key={i} className="relative flex-shrink-0 rounded-[7px] overflow-hidden" style={{ width: 60, height: 60 }}>
               <Image src={url} alt="" fill className="object-cover" />
             </div>
           ))}
-          {/* "See all" hint */}
-          <div className="flex-shrink-0 w-[60px] h-[60px] rounded-[7px] flex items-center justify-center text-[10px] font-semibold"
-            style={{ background: 'var(--bg2)', border: '1px solid var(--border)', color: 'var(--text3)' }}>
-            View →
+          <button
+            className="flex-shrink-0 w-[60px] h-[60px] rounded-[7px] flex flex-col items-center justify-center gap-0.5"
+            style={{ background: 'var(--bg2)', border: '1px dashed var(--gold)', color: 'var(--gold)' }}
+            onClick={() => router.push(`/create?edit=${trip.id}`)}
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" width="16" height="16">
+              <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+            </svg>
+            <span style={{ fontSize: 9, fontWeight: 700 }}>Photos</span>
+          </button>
+        </div>
+      )}
+
+      {/* Upcoming: add photos prompt (disabled) */}
+      {isUpcoming && (
+        <div className="flex items-center gap-2 px-4 pb-3 mt-1">
+          <div
+            className="text-[11px] flex items-center gap-1.5 px-3 py-1.5 rounded-full"
+            style={{ background: 'var(--bg2)', border: '1px solid var(--border)', color: 'var(--text3)' }}
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="11" height="11">
+              <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/>
+              <polyline points="21 15 16 10 5 21"/>
+            </svg>
+            Photos available after the trip
           </div>
         </div>
-      </div>
-    </Link>
+      )}
+    </div>
   )
 }
 

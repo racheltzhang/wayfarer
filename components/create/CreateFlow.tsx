@@ -8,7 +8,7 @@ import { useAppState } from '@/lib/app-state'
 import { MOCK_TRIPS, MOCK_PROFILES, ACTIVITY_SUGGESTIONS } from '@/lib/mock-data'
 import type { ActivityType, DraftDay, DraftActivity, Season, Trip } from '@/lib/types'
 
-type Step = 'mode' | 'basics' | 'days' | 'publish'
+type Step = 'mode' | 'basics' | 'days' | 'photos' | 'publish'
 
 const SEASONS: { value: Season; label: string; emoji: string }[] = [
   { value: 'spring',  label: 'Spring',  emoji: '🌸' },
@@ -537,9 +537,109 @@ function BasicsForm({ basics, onChange }: { basics: Basics; onChange: (b: Basics
   )
 }
 
+// ─── Photo Picker ──────────────────────────────────────────────
+
+// A grid of sample picsum photos simulating "upload from camera roll"
+const PHOTO_SEEDS = [
+  'food1','food2','food3','street1','street2','nature1','nature2','nature3',
+  'arch1','arch2','people1','night1','night2','beach1','beach2','market1',
+  'temple1','temple2','cafe1','view1','view2','view3','museum1','sunset1',
+]
+
+function PhotoPicker({
+  tripId,
+  existingPhotos,
+  selected,
+  onChange,
+}: {
+  tripId: string
+  existingPhotos: string[]
+  selected: string[]
+  onChange: (photos: string[]) => void
+}) {
+  function toggle(url: string) {
+    onChange(selected.includes(url) ? selected.filter(p => p !== url) : [...selected, url])
+  }
+
+  return (
+    <div className="flex flex-col gap-4">
+      {/* Existing photos */}
+      {existingPhotos.length > 0 && (
+        <div>
+          <div className="text-xs font-semibold mb-2" style={{ color: 'var(--text2)' }}>ALREADY ADDED</div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 4 }}>
+            {existingPhotos.map((url, i) => (
+              <div key={i} className="relative rounded-[8px] overflow-hidden" style={{ aspectRatio: '1' }}>
+                <Image src={url} alt="" fill className="object-cover" />
+                <div style={{
+                  position: 'absolute', top: 4, right: 4,
+                  background: '#4ECBA0', borderRadius: '50%',
+                  width: 18, height: 18, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: 11, fontWeight: 700, color: '#fff',
+                }}>✓</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Pick new photos */}
+      <div>
+        <div className="text-xs font-semibold mb-1" style={{ color: 'var(--text2)' }}>
+          ADD PHOTOS FROM YOUR TRIP
+        </div>
+        <div className="text-[11px] mb-3" style={{ color: 'var(--text3)' }}>
+          Tap to select photos · {selected.length} selected
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 4 }}>
+          {PHOTO_SEEDS.map(seed => {
+            const url = `https://picsum.photos/seed/${tripId}-${seed}/400/400`
+            const isSelected = selected.includes(url)
+            return (
+              <button
+                key={seed}
+                onClick={() => toggle(url)}
+                className="relative rounded-[8px] overflow-hidden transition-all active:scale-95"
+                style={{ aspectRatio: '1', border: isSelected ? '2.5px solid var(--gold)' : '2.5px solid transparent' }}
+              >
+                <Image src={url} alt="" fill className="object-cover" />
+                {isSelected && (
+                  <div style={{
+                    position: 'absolute', top: 4, right: 4,
+                    background: 'var(--gold)', borderRadius: '50%',
+                    width: 20, height: 20, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: 11, fontWeight: 700, color: 'var(--bg)',
+                  }}>✓</div>
+                )}
+                {isSelected && (
+                  <div style={{
+                    position: 'absolute', inset: 0,
+                    background: 'rgba(212,175,55,0.15)',
+                    pointerEvents: 'none',
+                  }} />
+                )}
+              </button>
+            )
+          })}
+        </div>
+      </div>
+
+      {selected.length > 0 && (
+        <div
+          className="text-[12px] py-2.5 px-3 rounded-[10px] font-medium text-center"
+          style={{ background: 'var(--gold-dim)', color: 'var(--gold)', border: '1px solid var(--gold)' }}
+        >
+          {selected.length} photo{selected.length !== 1 ? 's' : ''} ready to add
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ─── Publish Screen ────────────────────────────────────────────
 
-function PublishScreen({ basics, days, onPublish }: { basics: Basics; days: DraftDay[]; onPublish: () => void }) {
+function PublishScreen({ basics, days, onPublish, isEditing }: { basics: Basics; days: DraftDay[]; onPublish: () => void; isEditing: boolean }) {
   const total = days.reduce((s, d) => s + d.activities.length, 0)
   const seasonLabel = basics.season ? SEASONS.find(s => s.value === basics.season) : null
 
@@ -587,30 +687,81 @@ function PublishScreen({ basics, days, onPublish }: { basics: Basics; days: Draf
           </div>
         ))}
       </div>
-      <button className="btn-primary" onClick={onPublish}>✦ Publish Trip</button>
+      <button className="btn-primary" onClick={onPublish}>
+        {isEditing ? '✓ Save Changes' : '✦ Publish Trip'}
+      </button>
     </div>
   )
 }
 
 // ─── Main CreateFlow ───────────────────────────────────────────
 
-export default function CreateFlow() {
-  const router    = useRouter()
-  const { showToast }                         = useToast()
-  const { publishTrip, pendingActivity, setPendingActivity } = useAppState()
+// Helper: is a trip "past" (already happened)?
+function isTripPast(trip: Trip | null, beenIds: Set<string>): boolean {
+  if (!trip) return false
+  if (beenIds.has(trip.id)) return true
+  if (trip.end_date && new Date(trip.end_date) < new Date()) return true
+  if (trip.start_date && new Date(trip.start_date) < new Date()) return true
+  return false
+}
 
-  const [step,             setStep]             = useState<Step>('mode')
+interface CreateFlowProps {
+  initialTrip?: Trip | null
+}
+
+export default function CreateFlow({ initialTrip }: CreateFlowProps = {}) {
+  const router    = useRouter()
+  const { showToast }  = useToast()
+  const { publishTrip, updateTrip, addPhotosToTrip, tripPhotos, beenIds, pendingActivity, setPendingActivity } = useAppState()
+
+  const isEditing  = !!initialTrip
+  const isPast     = isTripPast(initialTrip ?? null, beenIds)
+  const existingPhotos = initialTrip ? (tripPhotos[initialTrip.id] ?? []) : []
+
+  // Steps depend on whether this is a past trip (adds photos step)
+  const steps: Step[] = isPast
+    ? ['basics', 'days', 'photos', 'publish']
+    : ['basics', 'days', 'publish']
+
+  const [step,             setStep]             = useState<Step>(isEditing ? 'basics' : 'mode')
   const [showFriendPicker, setShowFriendPicker] = useState(false)
   const [savedAt,          setSavedAt]          = useState<Date | null>(null)
+  const [selectedPhotos,   setSelectedPhotos]   = useState<string[]>([])
 
-  const [basics, setBasics] = useState<Basics>({
-    title: '', location: '', description: '',
-    visibility: 'friends',
-    coverImageUrl: 'https://picsum.photos/seed/tokyo99/800/500',
-    approxYear: '', approxMonth: '', approxPart: '', approxDuration: '',
-    season: '',
+  // Initialise from existing trip when editing
+  const [basics, setBasics] = useState<Basics>(() => {
+    if (initialTrip) {
+      return {
+        title:          initialTrip.title,
+        location:       initialTrip.location,
+        description:    initialTrip.description ?? '',
+        visibility:     initialTrip.visibility,
+        coverImageUrl:  initialTrip.cover_image_url ?? 'https://picsum.photos/seed/tokyo99/800/500',
+        approxYear:     '',
+        approxMonth:    '',
+        approxPart:     '',
+        approxDuration: initialTrip.approx_date_label ?? '',
+        season:         (initialTrip.season as Season | '') ?? '',
+      }
+    }
+    return {
+      title: '', location: '', description: '',
+      visibility: 'friends',
+      coverImageUrl: 'https://picsum.photos/seed/tokyo99/800/500',
+      approxYear: '', approxMonth: '', approxPart: '', approxDuration: '',
+      season: '',
+    }
   })
-  const [days, setDays] = useState<DraftDay[]>([{ title: 'Day 1', activities: [] }])
+
+  const [days, setDays] = useState<DraftDay[]>(() => {
+    if (initialTrip?.days?.length) {
+      return initialTrip.days.map(d => ({
+        title: d.title,
+        activities: d.activities.map(a => ({ emoji: a.emoji, text: a.text, type: a.type })),
+      }))
+    }
+    return [{ title: 'Day 1', activities: [] }]
+  })
 
   // If we arrived here from "Add to my trip → Create New Trip", pre-seed the activity
   useEffect(() => {
@@ -647,41 +798,39 @@ export default function CreateFlow() {
     showToast('✦ Trip cloned! Customize it below.')
   }
 
-  function publish() {
+  function buildTripObject(existingId?: string): Trip {
     const me = MOCK_PROFILES.find(p => p.id === 'me')!
-
-    // Approx label (when something was selected)
     const approxParts = [basics.approxPart, basics.approxMonth, basics.approxYear, basics.approxDuration].filter(Boolean)
     const approxLabel = approxParts.length > 0 ? approxParts.join(' ') : null
-
-    const durationDays = days.length
-
-    const newTrip: Trip = {
-      id:               `trip-pub-${Date.now()}`,
+    const tripId = existingId ?? `trip-pub-${Date.now()}`
+    return {
+      id:               tripId,
       title:            basics.title || 'My Trip',
       location:         basics.location,
       country_emoji:    '📍',
-      duration_days:    durationDays,
+      duration_days:    days.length,
       cover_image_url:  basics.coverImageUrl || null,
       description:      basics.description || null,
       visibility:       basics.visibility,
-      rating:           null,
-      rating_count:     0,
-      like_count:       0,
-      tags:             [],
-      author:           me,
-      created_at:       new Date().toISOString().slice(0, 10),
-      start_date:       null,
-      end_date:         null,
+      rating:           initialTrip?.rating ?? null,
+      rating_count:     initialTrip?.rating_count ?? 0,
+      like_count:       initialTrip?.like_count ?? 0,
+      tags:             initialTrip?.tags ?? [],
+      author:           initialTrip?.author ?? me,
+      created_at:       initialTrip?.created_at ?? new Date().toISOString().slice(0, 10),
+      start_date:       initialTrip?.start_date ?? null,
+      end_date:         initialTrip?.end_date ?? null,
       approx_date_label: approxLabel,
       season:           (basics.season as Season) || null,
+      lat:              initialTrip?.lat,
+      lng:              initialTrip?.lng,
       days: days.map((d, i) => ({
-        id:          `d-pub-${i}`,
-        trip_id:     `trip-pub-${Date.now()}`,
+        id:          `d-${tripId}-${i}`,
+        trip_id:     tripId,
         title:       d.title,
         day_number:  i + 1,
         activities:  d.activities.map((a, j) => ({
-          id:       `a-pub-${i}-${j}`,
+          id:       `a-${tripId}-${i}-${j}`,
           emoji:    a.emoji,
           text:     a.text,
           type:     a.type,
@@ -690,20 +839,43 @@ export default function CreateFlow() {
         })),
       })),
     }
-
-    publishTrip(newTrip)
-    showToast('✦ Trip published!')
-    setTimeout(() => router.push('/'), 1500)
   }
 
-  const steps: Step[] = ['basics', 'days', 'publish']
+  function publish() {
+    if (isEditing && initialTrip) {
+      const updated = buildTripObject(initialTrip.id)
+      updateTrip(updated)
+      if (selectedPhotos.length > 0) {
+        addPhotosToTrip(initialTrip.id, selectedPhotos)
+      }
+      showToast('✓ Trip updated!')
+      setTimeout(() => router.push('/profile'), 1200)
+    } else {
+      const newTrip = buildTripObject()
+      publishTrip(newTrip)
+      showToast('✦ Trip published!')
+      setTimeout(() => router.push('/'), 1500)
+    }
+  }
+
   const stepIndex = steps.indexOf(step)
 
-  const stepMeta = {
-    mode:    { title: 'New Trip',        subtitle: 'How would you like to start?' },
-    basics:  { title: 'The Basics',      subtitle: 'Tell us about your trip'      },
-    days:    { title: 'Your Itinerary',  subtitle: 'Build your day-by-day plan'   },
-    publish: { title: 'Ready to Share?', subtitle: 'Review and publish'           },
+  const stepMeta: Record<Step, { title: string; subtitle: string }> = {
+    mode:    { title: 'New Trip',        subtitle: 'How would you like to start?'      },
+    basics:  { title: isEditing ? 'Edit Trip' : 'The Basics', subtitle: isEditing ? 'Update your trip details' : 'Tell us about your trip' },
+    days:    { title: 'Your Itinerary',  subtitle: 'Build your day-by-day plan'        },
+    photos:  { title: 'Trip Photos',     subtitle: 'Add photos from your adventure'    },
+    publish: { title: isEditing ? 'Save Changes?' : 'Ready to Share?', subtitle: 'Review and ' + (isEditing ? 'save' : 'publish') },
+  }
+
+  function goBack() {
+    const i = steps.indexOf(step)
+    if (i <= 0) { if (!isEditing) setStep('mode'); return }
+    setStep(steps[i - 1])
+  }
+  function goNext() {
+    const i = steps.indexOf(step)
+    if (i < steps.length - 1) setStep(steps[i + 1])
   }
 
   return (
@@ -715,11 +887,22 @@ export default function CreateFlow() {
             <h1 className="font-head text-[22px] leading-tight">{stepMeta[step].title}</h1>
             <p className="text-xs mt-0.5" style={{ color: 'var(--text2)' }}>{stepMeta[step].subtitle}</p>
           </div>
-          {savedAt && step !== 'mode' && (
-            <div className="text-[10px]" style={{ color: 'var(--text3)' }}>
-              ✓ {savedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-            </div>
-          )}
+          <div className="flex items-center gap-2">
+            {savedAt && step !== 'mode' && (
+              <div className="text-[10px]" style={{ color: 'var(--text3)' }}>
+                ✓ {savedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              </div>
+            )}
+            {isEditing && (
+              <button
+                onClick={() => router.push('/profile')}
+                className="text-xs font-medium px-2.5 py-1 rounded-full"
+                style={{ background: 'var(--bg3)', color: 'var(--text3)', border: '1px solid var(--border)' }}
+              >
+                Cancel
+              </button>
+            )}
+          </div>
         </div>
         {step !== 'mode' && (
           <div className="flex gap-1.5 mt-3">
@@ -767,23 +950,28 @@ export default function CreateFlow() {
           <BasicsForm basics={basics} onChange={b => { setBasics(b); setSavedAt(new Date()) }} />
         )}
         {step === 'days' && <DayBuilder days={days} onChange={handleDaysChange} />}
-        {step === 'publish' && <PublishScreen basics={basics} days={days} onPublish={publish} />}
+        {step === 'photos' && (
+          <PhotoPicker
+            tripId={initialTrip?.id ?? 'new'}
+            existingPhotos={existingPhotos}
+            selected={selectedPhotos}
+            onChange={setSelectedPhotos}
+          />
+        )}
+        {step === 'publish' && (
+          <PublishScreen basics={basics} days={days} onPublish={publish} isEditing={isEditing} />
+        )}
       </div>
 
       {/* Footer nav */}
       {step !== 'mode' && (
         <div className="px-5 py-4 flex gap-3 flex-shrink-0" style={{ borderTop: '1px solid var(--border)' }}>
-          <button className="btn-secondary flex-1" onClick={() => {
-            if (step === 'basics') setStep('mode')
-            else if (step === 'days') setStep('basics')
-            else setStep('days')
-          }}>← Back</button>
+          <button className="btn-secondary flex-1" onClick={goBack}>← Back</button>
           {step !== 'publish' && (
-            <button className="btn-primary flex-1" onClick={() => {
-              if (step === 'basics') setStep('days')
-              else setStep('publish')
-            }}>
-              {step === 'basics' ? 'Build Itinerary →' : 'Review →'}
+            <button className="btn-primary flex-1" onClick={goNext}>
+              {step === 'basics' ? 'Build Itinerary →'
+               : step === 'days'   ? (isPast ? 'Add Photos →' : 'Review →')
+               : 'Review →'}
             </button>
           )}
         </div>

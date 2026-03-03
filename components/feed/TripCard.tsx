@@ -31,9 +31,13 @@ function timeAgo(dateStr: string): string {
 
 export default function TripCard({ trip, animationDelay = 0 }: Props) {
   const { showToast }                       = useToast()
-  const { likedIds, savedIds, toggleLike, toggleSave } = useAppState()
+  const { likedIds, savedIds, beenIds, tripPhotos, toggleLike, toggleSave } = useAppState()
   const liked = likedIds.has(trip.id)
   const saved = savedIds.has(trip.id)
+
+  // Determine if trip is upcoming (suppress photos)
+  const isUpcoming = !beenIds.has(trip.id)
+    && (trip.start_date ? new Date(trip.start_date) > new Date() : false)
 
   // ── Double-tap to like ──────────────────────────────────────
   const lastTapRef  = useRef<number>(0)
@@ -52,7 +56,9 @@ export default function TripCard({ trip, animationDelay = 0 }: Props) {
     }
   }
 
-  const extraPhotos = getExtraPhotos(trip)
+  // Use user-added photos if available; fall back to fake picsum for past trips only
+  const userPhotos = tripPhotos[trip.id] ?? []
+  const extraPhotos = isUpcoming ? [] : (userPhotos.length > 0 ? userPhotos : getExtraPhotos(trip))
 
   return (
     <div
@@ -143,20 +149,34 @@ export default function TripCard({ trip, animationDelay = 0 }: Props) {
               background: 'linear-gradient(to bottom, transparent 60%, rgba(11,11,20,0.35) 100%)',
               pointerEvents: 'none',
             }} />
+            {/* Upcoming badge */}
+            {isUpcoming && (
+              <div style={{
+                position: 'absolute', bottom: 10, left: 10,
+                background: 'rgba(11,11,20,0.75)', backdropFilter: 'blur(8px)',
+                borderRadius: 8, padding: '3px 8px',
+                fontSize: 11, fontWeight: 700, color: 'var(--gold)',
+                border: '1px solid rgba(212,175,55,0.3)',
+              }}>
+                ✈️ Upcoming
+              </div>
+            )}
           </div>
         </Link>
       )}
 
-      {/* ── Extra photo strip ────────────────────────────────── */}
-      <div className="flex gap-2 overflow-x-auto no-scrollbar px-3 pt-2">
-        {extraPhotos.map((url, i) => (
-          <Link key={i} href={`/trip/${trip.id}`} onClick={e => e.stopPropagation()}>
-            <div className="relative flex-shrink-0 rounded-[8px] overflow-hidden" style={{ width: 68, height: 68 }}>
-              <Image src={url} alt="" fill className="object-cover" />
-            </div>
-          </Link>
-        ))}
-      </div>
+      {/* ── Extra photo strip (hidden for upcoming trips) ──────── */}
+      {extraPhotos.length > 0 && (
+        <div className="flex gap-2 overflow-x-auto no-scrollbar px-3 pt-2">
+          {extraPhotos.map((url, i) => (
+            <Link key={i} href={`/trip/${trip.id}`} onClick={e => e.stopPropagation()}>
+              <div className="relative flex-shrink-0 rounded-[8px] overflow-hidden" style={{ width: 68, height: 68 }}>
+                <Image src={url} alt="" fill className="object-cover" />
+              </div>
+            </Link>
+          ))}
+        </div>
+      )}
 
       {/* ── Action bar ───────────────────────────────────────── */}
       <div
