@@ -5,7 +5,7 @@ import Image from 'next/image'
 import { useRef, useState } from 'react'
 import { useToast } from '@/components/ui/Toast'
 import { useAppState } from '@/lib/app-state'
-import { formatRating, formatCount } from '@/lib/utils'
+import { formatRating } from '@/lib/utils'
 import type { Trip } from '@/lib/types'
 
 interface Props {
@@ -18,6 +18,20 @@ function getExtraPhotos(trip: Trip): string[] {
   return [1, 2, 3, 4].map(i =>
     `https://picsum.photos/seed/${trip.id}-x${i}/300/300`
   )
+}
+
+function formatTripDates(start?: string | null, end?: string | null): string | null {
+  if (!start) return null
+  const fmt = (s: string) =>
+    new Date(s).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+  const year = (s: string) => new Date(s).getFullYear()
+  if (start && end) {
+    const sameYear = start.slice(0, 4) === end.slice(0, 4)
+    return sameYear
+      ? `${fmt(start)} – ${fmt(end)}, ${year(start)}`
+      : `${fmt(start)} ${year(start)} – ${fmt(end)} ${year(end)}`
+  }
+  return fmt(start) + `, ${year(start)}`
 }
 
 function timeAgo(dateStr: string): string {
@@ -119,7 +133,7 @@ export default function TripCard({ trip, animationDelay = 0 }: Props) {
         </Link>
 
         {/* Location + duration */}
-        <div className="flex items-center gap-1 text-xs mb-2.5" style={{ color: 'var(--text2)' }}>
+        <div className="flex items-center gap-1 text-xs mb-2" style={{ color: 'var(--text2)' }}>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="11" height="11" style={{ flexShrink: 0 }}>
             <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>
           </svg>
@@ -127,6 +141,36 @@ export default function TripCard({ trip, animationDelay = 0 }: Props) {
           <span style={{ color: 'var(--text3)' }}>·</span>
           <span style={{ color: 'var(--text3)' }}>{trip.duration_days}d</span>
         </div>
+
+        {/* Past / upcoming date label */}
+        {(() => {
+          const dateStr = formatTripDates(trip.start_date, trip.end_date)
+          if (!dateStr) return null
+          return (
+            <div className="flex items-center gap-1.5 mb-2.5">
+              {isUpcoming ? (
+                <span style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 4,
+                  fontSize: 11, fontWeight: 700, color: 'var(--gold)',
+                  background: 'var(--gold-dim)', border: '1px solid rgba(212,175,55,0.3)',
+                  borderRadius: 5, padding: '1px 7px',
+                }}>
+                  ✈️ Upcoming
+                </span>
+              ) : (
+                <span style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 4,
+                  fontSize: 11, fontWeight: 600, color: 'var(--text3)',
+                  background: 'var(--bg3)', border: '1px solid var(--border)',
+                  borderRadius: 5, padding: '1px 7px',
+                }}>
+                  📍 Past trip
+                </span>
+              )}
+              <span style={{ fontSize: 11, color: 'var(--text3)' }}>{dateStr}</span>
+            </div>
+          )
+        })()}
 
         {/* Tags */}
         {trip.tags.length > 0 && (
@@ -196,7 +240,7 @@ export default function TripCard({ trip, animationDelay = 0 }: Props) {
           <svg viewBox="0 0 24 24" fill={liked ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" width="16" height="16">
             <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
           </svg>
-          {formatCount(liked ? trip.like_count + 1 : trip.like_count)}
+          Like
         </button>
 
         {/* Comment */}
