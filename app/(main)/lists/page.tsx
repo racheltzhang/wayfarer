@@ -7,6 +7,8 @@ import { useRouter } from 'next/navigation'
 import { useAppState } from '@/lib/app-state'
 import { MOCK_TRIPS, MOCK_PROFILES } from '@/lib/mock-data'
 import type { Trip } from '@/lib/types'
+import BeenFlow from '@/components/been/BeenFlow'
+import { ToastProvider } from '@/components/ui/Toast'
 
 type ListTab = 'been' | 'upcoming' | 'saved' | 'recs' | 'guides'
 
@@ -206,9 +208,19 @@ function TripRow({
 // ── Main page ──────────────────────────────────────────────────
 
 export default function ListsPage() {
-  const [activeTab, setActiveTab] = useState<ListTab>('been')
+  const [activeTab,    setActiveTab]    = useState<ListTab>('been')
+  const [beenFlowTrip, setBeenFlowTrip] = useState<Trip | null>(null)
   const { beenIds, savedIds, toggleBeen, toggleSave, publishedTrips } = useAppState()
   const router = useRouter()
+
+  // Open BeenFlow to add; toggle off immediately to remove
+  function handleBeenToggle(trip: Trip) {
+    if (beenIds.has(trip.id)) {
+      toggleBeen(trip.id) // remove
+    } else {
+      setBeenFlowTrip(trip) // open flow to add
+    }
+  }
 
   const allTrips = [...MOCK_TRIPS, ...publishedTrips]
 
@@ -231,7 +243,17 @@ export default function ListsPage() {
   const savedTrips = allTrips.filter(t => savedIds.has(t.id))
 
   return (
+    <ToastProvider>
     <div className="flex flex-col h-full">
+      {/* BeenFlow overlay */}
+      {beenFlowTrip && (
+        <BeenFlow
+          trip={beenFlowTrip}
+          onClose={() => setBeenFlowTrip(null)}
+          onSaved={() => setBeenFlowTrip(null)}
+        />
+      )}
+
       {/* Header */}
       <div
         className="flex-shrink-0 px-5 pt-14 pb-3"
@@ -303,8 +325,8 @@ export default function ListsPage() {
                   key={trip.id}
                   trip={trip}
                   badge="✅ Been"
-                  onToggle={() => toggleBeen(trip.id)}
-                  toggleLabel={beenIds.has(trip.id) ? '✓ Been' : '+ Been'}
+                  onToggle={() => handleBeenToggle(trip)}
+                  toggleLabel={beenIds.has(trip.id) ? '✓ Been' : '+ Log visit'}
                   toggleActive={beenIds.has(trip.id)}
                 />
               ))
@@ -312,13 +334,13 @@ export default function ListsPage() {
 
             {/* Add trip prompt */}
             <div className="mt-4">
-              <div className="text-[11px] mb-2 font-medium" style={{ color: 'var(--text3)' }}>Mark any trip as been:</div>
+              <div className="text-[11px] mb-2 font-medium" style={{ color: 'var(--text3)' }}>Log a visit:</div>
               {allTrips.filter(t => !beenIds.has(t.id) && !beenTrips.includes(t)).slice(0, 3).map(trip => (
                 <TripRow
                   key={trip.id}
                   trip={trip}
-                  onToggle={() => toggleBeen(trip.id)}
-                  toggleLabel="+ Been"
+                  onToggle={() => handleBeenToggle(trip)}
+                  toggleLabel="+ Log visit"
                   toggleActive={false}
                 />
               ))}
@@ -497,6 +519,7 @@ export default function ListsPage() {
         </svg>
       </Link>
     </div>
+    </ToastProvider>
   )
 }
 

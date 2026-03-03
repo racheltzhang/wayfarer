@@ -1,7 +1,7 @@
 'use client'
 
 import { createContext, useContext, useState, ReactNode } from 'react'
-import type { Trip, DraftActivity } from './types'
+import type { Trip, DraftActivity, BeenTripData } from './types'
 
 interface AppState {
   likedIds:            Set<string>
@@ -15,6 +15,8 @@ interface AppState {
   tripAdditions:       Record<string, DraftActivity[]>
   // activity queued to be pre-loaded into a new trip from CreateFlow
   pendingActivity:     DraftActivity | null
+  // user's personal been/visited log data
+  beenData:            Record<string, BeenTripData>
   toggleLike:          (tripId: string) => void
   toggleSave:          (tripId: string) => void
   toggleBeen:          (tripId: string) => void
@@ -24,6 +26,7 @@ interface AppState {
   addPhotosToTrip:     (tripId: string, photos: string[]) => void
   addActivityToTrip:   (tripId: string, act: DraftActivity) => void
   setPendingActivity:  (act: DraftActivity | null) => void
+  saveBeen:            (data: BeenTripData) => void
 }
 
 const AppStateContext = createContext<AppState | null>(null)
@@ -37,6 +40,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   const [tripPhotos,      setTripPhotos]      = useState<Record<string, string[]>>({})
   const [tripAdditions,   setTripAdditions]   = useState<Record<string, DraftActivity[]>>({})
   const [pendingActivity, setPendingActivity] = useState<DraftActivity | null>(null)
+  const [beenData,        setBeenData]        = useState<Record<string, BeenTripData>>({})
 
   function toggle(
     set: Set<string>,
@@ -60,6 +64,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       tripPhotos,
       tripAdditions,
       pendingActivity,
+      beenData,
       toggleLike:    id  => toggle(likedIds,     setLikedIds,     id),
       toggleSave:    id  => toggle(savedIds,     setSavedIds,     id),
       toggleBeen:    id  => toggle(beenIds,      setBeenIds,      id),
@@ -77,6 +82,23 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
           [tripId]: [...(prev[tripId] ?? []), act],
         })),
       setPendingActivity,
+      saveBeen: (data: BeenTripData) => {
+        // Store the personal data
+        setBeenData(prev => ({ ...prev, [data.tripId]: data }))
+        // Also save photos into the shared tripPhotos store if provided
+        if (data.photos.length > 0) {
+          setTripPhotos(prev => ({
+            ...prev,
+            [data.tripId]: data.photos,
+          }))
+        }
+        // Mark as been
+        setBeenIds(prev => {
+          const next = new Set(prev)
+          next.add(data.tripId)
+          return next
+        })
+      },
     }}>
       {children}
     </AppStateContext.Provider>

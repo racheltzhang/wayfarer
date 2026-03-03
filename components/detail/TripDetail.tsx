@@ -8,6 +8,7 @@ import { formatRating, starsFilled } from '@/lib/utils'
 import { useToast, ToastProvider } from '@/components/ui/Toast'
 import { AppStateProvider, useAppState } from '@/lib/app-state'
 import { MOCK_TRIPS } from '@/lib/mock-data'
+import BeenFlow from '@/components/been/BeenFlow'
 
 interface Props { id: string }
 
@@ -304,14 +305,16 @@ function TripNotFound() {
 function TripContent({ trip }: { trip: Trip }) {
   const router = useRouter()
   const { showToast } = useToast()
-  const { likedIds, savedIds, followingIds, toggleLike, toggleSave, toggleFollow } = useAppState()
+  const { likedIds, savedIds, beenIds, followingIds, toggleLike, toggleSave, toggleBeen, toggleFollow } = useAppState()
 
   const liked     = likedIds.has(trip.id)
   const saved     = savedIds.has(trip.id)
+  const been      = beenIds.has(trip.id)
   const following = followingIds.has(trip.author.id)
 
   const [openDays,       setOpenDays]       = useState<Set<string>>(new Set([trip.days[0]?.id]))
   const [addingActivity, setAddingActivity] = useState<DraftActivity | null>(null)
+  const [beenFlowOpen,   setBeenFlowOpen]   = useState(false)
 
   const filled       = starsFilled(trip.rating)
   const exactDateStr = formatDateRange(trip.start_date, trip.end_date)
@@ -465,6 +468,52 @@ function TripContent({ trip }: { trip: Trip }) {
           )}
         </div>
 
+        {/* Log my visit button */}
+        {!been ? (
+          <button
+            onClick={() => setBeenFlowOpen(true)}
+            style={{
+              width: '100%', marginTop: 16, marginBottom: 4,
+              padding: '13px', borderRadius: 12,
+              border: '1px solid var(--gold)', background: 'var(--gold-dim)',
+              color: 'var(--gold)', fontSize: 14, fontWeight: 700,
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+              cursor: 'pointer',
+            }}
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16">
+              <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>
+            </svg>
+            I&apos;ve been here — log my visit
+          </button>
+        ) : (
+          <div style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            marginTop: 16, marginBottom: 4,
+            padding: '11px 14px', borderRadius: 12,
+            background: 'var(--bg3)', border: '1px solid var(--border)',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ fontSize: 16 }}>✅</span>
+              <span style={{ fontSize: 13, fontWeight: 600 }}>Visit logged</span>
+            </div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button
+                onClick={() => setBeenFlowOpen(true)}
+                style={{ fontSize: 12, color: 'var(--gold)', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600 }}
+              >
+                Edit
+              </button>
+              <button
+                onClick={() => { toggleBeen(trip.id); showToast('Removed from been') }}
+                style={{ fontSize: 12, color: 'var(--text3)', background: 'none', border: 'none', cursor: 'pointer' }}
+              >
+                Remove
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Rating row — only shown if rating exists */}
         {trip.rating != null && (
           <div className="flex items-center gap-4 rounded-[10px] p-4 my-5"
@@ -611,6 +660,15 @@ function TripContent({ trip }: { trip: Trip }) {
         <AddToTripSheet
           activity={addingActivity}
           onClose={() => setAddingActivity(null)}
+        />
+      )}
+
+      {/* Been flow overlay */}
+      {beenFlowOpen && (
+        <BeenFlow
+          trip={trip}
+          onClose={() => setBeenFlowOpen(false)}
+          onSaved={() => setBeenFlowOpen(false)}
         />
       )}
     </div>

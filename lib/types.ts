@@ -142,3 +142,24 @@ export interface ActivitySuggestion {
   name: string
   type: ActivityType
 }
+
+// ─── Been / visited log ───────────────────────────────────────
+
+export interface BeenMemory {
+  emoji: string
+  text: string
+}
+
+export interface BeenTripData {
+  tripId: string          // original trip id (if logging against a discovered trip)
+  location: string
+  dateType: 'exact' | 'approximate'
+  startDate: string | null
+  endDate: string | null
+  approxMonth: string | null   // e.g. "March"
+  approxYear: string | null    // e.g. "2024"
+  approxSeason: Season | null
+  notes: string
+  photos: string[]
+  memories: BeenMemory[]
+}
