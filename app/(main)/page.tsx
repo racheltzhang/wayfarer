@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import FeedHeader from '@/components/feed/FeedHeader'
 import FriendStories from '@/components/feed/FriendStories'
@@ -18,10 +18,92 @@ const TABS: { id: FeedTab; label: string }[] = [
   { id: 'liked',     label: 'Liked' },
 ]
 
+// ── First-run welcome banner ────────────────────────────────────
+function WelcomeBanner({ onDismiss }: { onDismiss: () => void }) {
+  const [prefs, setPrefs] = useState<{ intent?: string[]; destinations?: string[] } | null>(null)
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem('wayfarer_prefs')
+      if (raw) setPrefs(JSON.parse(raw))
+    } catch { /* ignore */ }
+  }, [])
+
+  const wantsToShare  = prefs?.intent?.includes('share') || prefs?.intent?.includes('content')
+  const wantsToPlan   = prefs?.intent?.includes('plan')
+  const dest          = prefs?.destinations?.[0]
+
+  return (
+    <div
+      className="mx-5 mb-4 rounded-[14px] p-4 relative overflow-hidden"
+      style={{ background: 'linear-gradient(135deg, rgba(212,175,55,0.15) 0%, rgba(212,175,55,0.05) 100%)', border: '1px solid rgba(212,175,55,0.3)' }}
+    >
+      <button
+        onClick={onDismiss}
+        style={{ position: 'absolute', top: 10, right: 10, color: 'var(--text3)', background: 'none', border: 'none', cursor: 'pointer', fontSize: 16, lineHeight: 1 }}
+      >
+        ×
+      </button>
+      <div className="text-[13px] font-semibold mb-1" style={{ color: 'var(--gold)' }}>
+        ✦ Welcome to Wayfarer
+      </div>
+      <div className="text-[12px] mb-3" style={{ color: 'var(--text2)' }}>
+        {dest
+          ? `We've curated trips to ${dest} and beyond — just for you.`
+          : 'Your personalised feed is ready. Explore and get inspired.'}
+      </div>
+      <div className="flex gap-2">
+        {wantsToShare && (
+          <Link
+            href="/create"
+            className="text-[11px] font-semibold px-3 py-1.5 rounded-full"
+            style={{ background: 'var(--gold)', color: 'var(--bg)' }}
+          >
+            + Share a trip
+          </Link>
+        )}
+        {wantsToPlan && (
+          <Link
+            href="/lists"
+            className="text-[11px] font-semibold px-3 py-1.5 rounded-full"
+            style={{ background: 'var(--bg3)', color: 'var(--text2)', border: '1px solid var(--border)' }}
+          >
+            Plan a trip
+          </Link>
+        )}
+        {!wantsToShare && !wantsToPlan && (
+          <Link
+            href="/search"
+            className="text-[11px] font-semibold px-3 py-1.5 rounded-full"
+            style={{ background: 'var(--bg3)', color: 'var(--text2)', border: '1px solid var(--border)' }}
+          >
+            Explore map
+          </Link>
+        )}
+      </div>
+    </div>
+  )
+}
+
 export default function FeedPage() {
   const [tab,   setTab]   = useState<FeedTab>('forYou')
   const [query, setQuery] = useState('')
+  const [showWelcome, setShowWelcome] = useState(false)
   const { likedIds, savedIds, followingIds, publishedTrips } = useAppState()
+
+  // Show welcome banner once after onboarding
+  useEffect(() => {
+    try {
+      const done = localStorage.getItem('wayfarer_onboarding_done')
+      const dismissed = sessionStorage.getItem('wayfarer_welcome_dismissed')
+      if (done && !dismissed) setShowWelcome(true)
+    } catch { /* ignore */ }
+  }, [])
+
+  function dismissWelcome() {
+    setShowWelcome(false)
+    try { sessionStorage.setItem('wayfarer_welcome_dismissed', '1') } catch { /* ignore */ }
+  }
 
   // Merge published trips (newest first) with mock trips, de-duping by id
   const allTrips = [
@@ -56,6 +138,7 @@ export default function FeedPage() {
   return (
     <div className="flex flex-col flex-1 overflow-y-auto no-scrollbar pb-24 relative">
       <FeedHeader />
+      {showWelcome && <WelcomeBanner onDismiss={dismissWelcome} />}
       <SearchBar placeholder="Search destinations, trips…" onSearch={setQuery} />
 
       {/* Friend stories */}
