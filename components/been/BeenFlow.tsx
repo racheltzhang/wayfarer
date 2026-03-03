@@ -51,9 +51,6 @@ export default function BeenFlow({ trip, onClose, onSaved }: Props) {
 
   // ── Step 1 state: When & Where ──────────────────────────────
   const [location,     setLocation]     = useState(trip.location)
-  const [dateType,     setDateType]     = useState<'exact' | 'approximate'>('approximate')
-  const [startDate,    setStartDate]    = useState('')
-  const [endDate,      setEndDate]      = useState('')
   const [approxSeason, setApproxSeason] = useState<Season | ''>('')
   const [approxMonth,  setApproxMonth]  = useState('')
   const [approxYear,   setApproxYear]   = useState(String(CURRENT_YEAR))
@@ -134,12 +131,12 @@ export default function BeenFlow({ trip, onClose, onSaved }: Props) {
     const data: BeenTripData = {
       tripId:       trip.id,
       location:     location.trim() || trip.location,
-      dateType,
-      startDate:    dateType === 'exact'       ? startDate   || null : null,
-      endDate:      dateType === 'exact'       ? endDate     || null : null,
-      approxMonth:  dateType === 'approximate' ? approxMonth || null : null,
-      approxYear:   dateType === 'approximate' ? approxYear  || null : null,
-      approxSeason: dateType === 'approximate' ? (approxSeason || null) as Season | null : null,
+      dateType:     'approximate',
+      startDate:    null,
+      endDate:      null,
+      approxMonth:  approxMonth || null,
+      approxYear:   approxYear  || null,
+      approxSeason: (approxSeason || null) as Season | null,
       notes,
       photos:       photos.filter(Boolean),
       memories,
@@ -250,114 +247,63 @@ export default function BeenFlow({ trip, onClose, onSaved }: Props) {
               />
             </div>
 
-            {/* Date type toggle */}
+            {/* When */}
             <div>
               <label style={labelStyle}>When was this?</label>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 18 }}>
-                {([
-                  ['approximate', '🗓️  Season / month'],
-                  ['exact',       '📅  Exact dates'],
-                ] as const).map(([val, lbl]) => (
-                  <button
-                    key={val}
-                    onClick={() => setDateType(val)}
-                    style={{
-                      padding: '11px 8px', borderRadius: 10,
-                      fontSize: 13, fontWeight: 600, textAlign: 'center',
-                      border: `1.5px solid ${dateType === val ? 'var(--gold)' : 'var(--border)'}`,
-                      background: dateType === val ? 'var(--gold-dim)' : 'var(--bg3)',
-                      color: dateType === val ? 'var(--gold)' : 'var(--text2)',
-                      cursor: 'pointer',
-                    }}
-                  >
-                    {lbl}
-                  </button>
-                ))}
-              </div>
-
-              {/* ── Approximate ── */}
-              {dateType === 'approximate' && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                  {/* Season tiles */}
-                  <div>
-                    <label style={{ ...labelStyle, marginBottom: 8 }}>Season</label>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
-                      {SEASONS.map(s => (
-                        <button
-                          key={s.value}
-                          onClick={() => setApproxSeason(prev => prev === s.value ? '' : s.value)}
-                          style={{
-                            padding: '10px 4px', borderRadius: 10, textAlign: 'center',
-                            border: `1.5px solid ${approxSeason === s.value ? 'var(--gold)' : 'var(--border)'}`,
-                            background: approxSeason === s.value ? 'var(--gold-dim)' : 'var(--bg3)',
-                            cursor: 'pointer', display: 'flex', flexDirection: 'column',
-                            alignItems: 'center', gap: 3,
-                          }}
-                        >
-                          <span style={{ fontSize: 20 }}>{s.icon}</span>
-                          <span style={{
-                            fontSize: 10, fontWeight: 700,
-                            color: approxSeason === s.value ? 'var(--gold)' : 'var(--text3)',
-                          }}>
-                            {s.label}
-                          </span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Month + Year side by side */}
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                    <div>
-                      <label style={{ ...labelStyle, marginBottom: 6 }}>Month</label>
-                      <select
-                        style={{ ...inputStyle, appearance: 'none', cursor: 'pointer' }}
-                        value={approxMonth}
-                        onChange={e => setApproxMonth(e.target.value)}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                {/* Season tiles */}
+                <div>
+                  <label style={{ ...labelStyle, marginBottom: 8, fontSize: 10 }}>Season</label>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
+                    {SEASONS.map(s => (
+                      <button
+                        key={s.value}
+                        onClick={() => setApproxSeason(prev => prev === s.value ? '' : s.value)}
+                        style={{
+                          padding: '10px 4px', borderRadius: 10, textAlign: 'center',
+                          border: `1.5px solid ${approxSeason === s.value ? 'var(--gold)' : 'var(--border)'}`,
+                          background: approxSeason === s.value ? 'var(--gold-dim)' : 'var(--bg3)',
+                          cursor: 'pointer', display: 'flex', flexDirection: 'column',
+                          alignItems: 'center', gap: 3,
+                        }}
                       >
-                        <option value="">Any month</option>
-                        {MONTHS.map(m => <option key={m} value={m}>{m}</option>)}
-                      </select>
-                    </div>
-                    <div>
-                      <label style={{ ...labelStyle, marginBottom: 6 }}>Year</label>
-                      <select
-                        style={{ ...inputStyle, appearance: 'none', cursor: 'pointer' }}
-                        value={approxYear}
-                        onChange={e => setApproxYear(e.target.value)}
-                      >
-                        {YEARS.map(y => <option key={y} value={y}>{y}</option>)}
-                      </select>
-                    </div>
+                        <span style={{ fontSize: 20 }}>{s.icon}</span>
+                        <span style={{
+                          fontSize: 10, fontWeight: 700,
+                          color: approxSeason === s.value ? 'var(--gold)' : 'var(--text3)',
+                        }}>
+                          {s.label}
+                        </span>
+                      </button>
+                    ))}
                   </div>
                 </div>
-              )}
 
-              {/* ── Exact dates ── */}
-              {dateType === 'exact' && (
+                {/* Month + Year side by side */}
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                   <div>
-                    <label style={{ ...labelStyle, marginBottom: 6 }}>From</label>
-                    <input
-                      type="date"
-                      style={inputStyle}
-                      value={startDate}
-                      onChange={e => setStartDate(e.target.value)}
-                      max={endDate || undefined}
-                    />
+                    <label style={{ ...labelStyle, marginBottom: 6, fontSize: 10 }}>Month</label>
+                    <select
+                      style={{ ...inputStyle, appearance: 'none', cursor: 'pointer' }}
+                      value={approxMonth}
+                      onChange={e => setApproxMonth(e.target.value)}
+                    >
+                      <option value="">Any month</option>
+                      {MONTHS.map(m => <option key={m} value={m}>{m}</option>)}
+                    </select>
                   </div>
                   <div>
-                    <label style={{ ...labelStyle, marginBottom: 6 }}>To</label>
-                    <input
-                      type="date"
-                      style={inputStyle}
-                      value={endDate}
-                      onChange={e => setEndDate(e.target.value)}
-                      min={startDate || undefined}
-                    />
+                    <label style={{ ...labelStyle, marginBottom: 6, fontSize: 10 }}>Year</label>
+                    <select
+                      style={{ ...inputStyle, appearance: 'none', cursor: 'pointer' }}
+                      value={approxYear}
+                      onChange={e => setApproxYear(e.target.value)}
+                    >
+                      {YEARS.map(y => <option key={y} value={y}>{y}</option>)}
+                    </select>
                   </div>
                 </div>
-              )}
+              </div>
             </div>
           </div>
         )}
