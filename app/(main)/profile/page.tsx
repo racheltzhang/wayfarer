@@ -297,7 +297,7 @@ export default function ProfilePage() {
         className="flex mx-5 mb-4 rounded-[10px] overflow-hidden p-1 gap-1"
         style={{ background: 'var(--bg3)', border: '1px solid var(--border)' }}
       >
-        {([['trips', '✈ Trips'], ['saved', '🔖 Want to Go']] as [Tab, string][]).map(([t, label]) => (
+        {([['trips', '✈ My Trips'], ['saved', '🔖 Saved']] as [Tab, string][]).map(([t, label]) => (
           <button
             key={t}
             onClick={() => setTab(t)}
