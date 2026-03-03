@@ -6,6 +6,7 @@ import type { Trip, DraftActivity } from './types'
 interface AppState {
   likedIds:            Set<string>
   savedIds:            Set<string>
+  beenIds:             Set<string>
   followingIds:        Set<string>
   publishedTrips:      Trip[]
   // activities added to specific trips (tripId → DraftActivity[])
@@ -14,6 +15,7 @@ interface AppState {
   pendingActivity:     DraftActivity | null
   toggleLike:          (tripId: string) => void
   toggleSave:          (tripId: string) => void
+  toggleBeen:          (tripId: string) => void
   toggleFollow:        (userId: string) => void
   publishTrip:         (trip: Trip) => void
   addActivityToTrip:   (tripId: string, act: DraftActivity) => void
@@ -25,6 +27,7 @@ const AppStateContext = createContext<AppState | null>(null)
 export function AppStateProvider({ children }: { children: ReactNode }) {
   const [likedIds,        setLikedIds]        = useState<Set<string>>(new Set())
   const [savedIds,        setSavedIds]        = useState<Set<string>>(new Set())
+  const [beenIds,         setBeenIds]         = useState<Set<string>>(new Set(['trip-1', 'trip-me-1']))
   const [followingIds,    setFollowingIds]    = useState<Set<string>>(new Set(['u1', 'u2']))
   const [publishedTrips,  setPublishedTrips]  = useState<Trip[]>([])
   const [tripAdditions,   setTripAdditions]   = useState<Record<string, DraftActivity[]>>({})
@@ -46,12 +49,14 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     <AppStateContext.Provider value={{
       likedIds,
       savedIds,
+      beenIds,
       followingIds,
       publishedTrips,
       tripAdditions,
       pendingActivity,
       toggleLike:    id  => toggle(likedIds,     setLikedIds,     id),
       toggleSave:    id  => toggle(savedIds,     setSavedIds,     id),
+      toggleBeen:    id  => toggle(beenIds,      setBeenIds,      id),
       toggleFollow:  id  => toggle(followingIds, setFollowingIds, id),
       publishTrip:   trip => setPublishedTrips(prev => [trip, ...prev]),
       addActivityToTrip: (tripId, act) =>

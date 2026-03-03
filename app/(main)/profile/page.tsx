@@ -438,6 +438,22 @@ export default function ProfilePage() {
           </div>
         </>
       )}
+
+      {/* Floating Create button */}
+      <Link
+        href="/create"
+        className="fixed flex items-center justify-center rounded-full transition-transform active:scale-95 z-20"
+        style={{
+          width: 52, height: 52,
+          bottom: 80, right: 'calc(50% - 215px + 20px)',
+          background: 'var(--gold)',
+          boxShadow: '0 4px 20px rgba(212,175,55,0.45)',
+        }}
+      >
+        <svg viewBox="0 0 24 24" fill="none" stroke="var(--bg)" strokeWidth="2.5" width="22" height="22">
+          <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
+        </svg>
+      </Link>
     </div>
   )
 }

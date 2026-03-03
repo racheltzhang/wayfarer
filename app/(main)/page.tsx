@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import Link from 'next/link'
 import FeedHeader from '@/components/feed/FeedHeader'
 import FriendStories from '@/components/feed/FriendStories'
 import TripCard from '@/components/feed/TripCard'
@@ -53,7 +54,7 @@ export default function FeedPage() {
   }
 
   return (
-    <div className="flex flex-col flex-1 overflow-y-auto no-scrollbar pb-20">
+    <div className="flex flex-col flex-1 overflow-y-auto no-scrollbar pb-24 relative">
       <FeedHeader />
       <SearchBar placeholder="Search destinations, trips…" onSearch={setQuery} />
 
@@ -98,6 +99,22 @@ export default function FeedPage() {
           <div className="text-xs" style={{ color: 'var(--text2)' }}>{emptyMsg[tab].sub}</div>
         </div>
       )}
+
+      {/* Floating Create button */}
+      <Link
+        href="/create"
+        className="fixed flex items-center justify-center rounded-full transition-transform active:scale-95 z-20"
+        style={{
+          width: 52, height: 52,
+          bottom: 80, right: 'calc(50% - 215px + 20px)',
+          background: 'var(--gold)',
+          boxShadow: '0 4px 20px rgba(212,175,55,0.45)',
+        }}
+      >
+        <svg viewBox="0 0 24 24" fill="none" stroke="var(--bg)" strokeWidth="2.5" width="22" height="22">
+          <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
+        </svg>
+      </Link>
     </div>
   )
 }

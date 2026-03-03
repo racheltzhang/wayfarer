@@ -7,13 +7,17 @@ import Image from 'next/image'
 import type { MapPin } from '@/lib/types'
 import { MOCK_TRIPS } from '@/lib/mock-data'
 
-interface Props { pins: MapPin[] }
+interface Props {
+  pins: MapPin[]
+  beenTripIds?: Set<string>
+  savedTripIds?: Set<string>
+}
 
 const FILTER_CHIPS = ['All Trips', 'Friends', 'My Saves', 'Top Rated', 'Asia', 'Europe']
 const DEFAULT_VIEW: [number, number] = [30, 15]
 const DEFAULT_ZOOM = 3
 
-export default function MapView({ pins }: Props) {
+export default function MapView({ pins, beenTripIds = new Set(), savedTripIds = new Set() }: Props) {
   const router        = useRouter()
   const mapRef        = useRef<HTMLDivElement>(null)
   const leafletRef    = useRef<any>(null)
@@ -48,9 +52,12 @@ export default function MapView({ pins }: Props) {
       }).addTo(map)
 
       pins.forEach(pin => {
+        const isBeen  = beenTripIds.has(pin.tripId)
+        const isSaved = savedTripIds.has(pin.tripId)
+        const pinClass = isBeen ? 'wayfarer-pin-been' : isSaved ? 'wayfarer-pin-saved' : 'wayfarer-pin'
         const icon = L.divIcon({
           className: '',
-          html: '<div class="wayfarer-pin"></div>',
+          html: `<div class="${pinClass}"></div>`,
           iconSize: [10, 10],
         })
         const marker = L.marker([pin.lat, pin.lng], { icon }).addTo(map)
