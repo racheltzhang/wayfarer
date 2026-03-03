@@ -293,20 +293,24 @@ export default function ProfilePage() {
       </div>
 
       {/* ── Tab switcher ─────────────────────────────────────── */}
-      <div
-        className="flex mx-5 mb-4 rounded-[10px] overflow-hidden p-1 gap-1"
-        style={{ background: 'var(--bg3)', border: '1px solid var(--border)' }}
-      >
-        {([['trips', '✈ My Trips'], ['saved', '🔖 Saved']] as [Tab, string][]).map(([t, label]) => (
+      <div className="flex mx-5 mb-4 gap-3">
+        {([['trips', '✈', 'My Trips'], ['saved', '🔖', 'Saved']] as [Tab, string, string][]).map(([t, icon, label]) => (
           <button
             key={t}
             onClick={() => setTab(t)}
-            className="flex-1 py-2 rounded-[8px] text-xs font-semibold uppercase tracking-wide transition-all"
-            style={tab === t
-              ? { background: 'var(--gold)', color: '#0B0B14' }
-              : { color: 'var(--text2)' }}
+            className="flex-1 flex flex-col items-center gap-1 pb-3 transition-all"
+            style={{
+              background: 'none', border: 'none',
+              borderBottom: tab === t ? '2px solid var(--gold)' : '2px solid var(--border)',
+            }}
           >
-            {label}
+            <span style={{ fontSize: 20 }}>{icon}</span>
+            <span
+              className="text-sm font-semibold"
+              style={{ color: tab === t ? 'var(--gold)' : 'var(--text2)' }}
+            >
+              {label}
+            </span>
           </button>
         ))}
       </div>
