@@ -5,8 +5,8 @@ import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import type { Trip, DraftActivity } from '@/lib/types'
 import { formatRating, starsFilled } from '@/lib/utils'
-import { useToast, ToastProvider } from '@/components/ui/Toast'
-import { AppStateProvider, useAppState } from '@/lib/app-state'
+import { useToast } from '@/components/ui/Toast'
+import { useAppState } from '@/lib/app-state'
 import { MOCK_TRIPS } from '@/lib/mock-data'
 import BeenFlow from '@/components/been/BeenFlow'
 
@@ -305,7 +305,7 @@ function TripNotFound() {
 function TripContent({ trip }: { trip: Trip }) {
   const router = useRouter()
   const { showToast } = useToast()
-  const { likedIds, savedIds, beenIds, followingIds, toggleLike, toggleSave, toggleBeen, toggleFollow } = useAppState()
+  const { likedIds, savedIds, beenIds, followingIds, toggleLike, toggleSave, toggleBeen, toggleFollow, publishTrip } = useAppState()
 
   const liked     = likedIds.has(trip.id)
   const saved     = savedIds.has(trip.id)
@@ -324,6 +324,24 @@ function TripContent({ trip }: { trip: Trip }) {
   // Determine upcoming vs past for header badge
   const now = new Date()
   const isUpcoming = trip.start_date ? new Date(trip.start_date) > now : false
+
+  const isMyTrip = trip.author.id === 'me'
+
+  function copyTrip() {
+    const copy: Trip = {
+      ...trip,
+      id: `copy-${trip.id}-${Date.now()}`,
+      title: `${trip.title}`,
+      author: { id: 'me', username: 'rachel_z', full_name: 'Rachel Zhang', avatar_url: 'https://i.pravatar.cc/104?img=9', bio: '', trip_count: 0, follower_count: 0, following_count: 0, created_at: new Date().toISOString() },
+      created_at: new Date().toISOString(),
+      visibility: 'private',
+      is_liked: false,
+      is_saved: false,
+    }
+    publishTrip(copy)
+    showToast('✅ Trip copied to your profile')
+    setTimeout(() => router.push('/profile'), 800)
+  }
 
   function toggleDay(dayId: string) {
     setOpenDays(prev => {
@@ -468,51 +486,70 @@ function TripContent({ trip }: { trip: Trip }) {
           )}
         </div>
 
-        {/* Log my visit button */}
-        {!been ? (
-          <button
-            onClick={() => setBeenFlowOpen(true)}
-            style={{
-              width: '100%', marginTop: 16, marginBottom: 4,
-              padding: '13px', borderRadius: 12,
-              border: '1px solid var(--gold)', background: 'var(--gold-dim)',
-              color: 'var(--gold)', fontSize: 14, fontWeight: 700,
-              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-              cursor: 'pointer',
-            }}
-          >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16">
-              <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>
-            </svg>
-            I&apos;ve been here — log my visit
-          </button>
-        ) : (
-          <div style={{
-            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-            marginTop: 16, marginBottom: 4,
-            padding: '11px 14px', borderRadius: 12,
-            background: 'var(--bg3)', border: '1px solid var(--border)',
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span style={{ fontSize: 16 }}>✅</span>
-              <span style={{ fontSize: 13, fontWeight: 600 }}>Visit logged</span>
+        {/* Primary action + subtle been link */}
+        <div style={{ marginTop: 16, marginBottom: 4 }}>
+          {/* Primary action button */}
+          {!isMyTrip && (
+            <button
+              onClick={copyTrip}
+              style={{
+                width: '100%',
+                padding: '13px', borderRadius: 12,
+                background: 'var(--gold)', color: '#0B0B14',
+                fontSize: 14, fontWeight: 700,
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                cursor: 'pointer', border: 'none',
+              }}
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" width="16" height="16">
+                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+              </svg>
+              Copy this trip
+            </button>
+          )}
+
+          {/* Subtle been row */}
+          {been ? (
+            <div style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              marginTop: isMyTrip ? 0 : 10,
+              padding: '8px 2px',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span style={{ fontSize: 13 }}>✅</span>
+                <span style={{ fontSize: 12, color: 'var(--text2)' }}>You&apos;ve logged a visit here</span>
+              </div>
+              <div style={{ display: 'flex', gap: 10 }}>
+                <button
+                  onClick={() => setBeenFlowOpen(true)}
+                  style={{ fontSize: 12, color: 'var(--gold)', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600 }}
+                >
+                  Edit
+                </button>
+                <button
+                  onClick={() => { toggleBeen(trip.id); showToast('Visit removed') }}
+                  style={{ fontSize: 12, color: 'var(--text3)', background: 'none', border: 'none', cursor: 'pointer' }}
+                >
+                  Remove
+                </button>
+              </div>
             </div>
-            <div style={{ display: 'flex', gap: 8 }}>
+          ) : (
+            <div style={{ textAlign: isMyTrip ? 'left' : 'center', marginTop: isMyTrip ? 0 : 10 }}>
               <button
                 onClick={() => setBeenFlowOpen(true)}
-                style={{ fontSize: 12, color: 'var(--gold)', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600 }}
+                style={{
+                  fontSize: 12, color: 'var(--text3)',
+                  background: 'none', border: 'none', cursor: 'pointer',
+                  textDecoration: 'underline', textDecorationColor: 'var(--border)',
+                  textUnderlineOffset: 3,
+                }}
               >
-                Edit
-              </button>
-              <button
-                onClick={() => { toggleBeen(trip.id); showToast('Removed from been') }}
-                style={{ fontSize: 12, color: 'var(--text3)', background: 'none', border: 'none', cursor: 'pointer' }}
-              >
-                Remove
+                I&apos;ve been here — log my visit
               </button>
             </div>
-          </div>
-        )}
+          )}
+        </div>
 
         {/* Rating row — only shown if rating exists */}
         {trip.rating != null && (
@@ -685,13 +722,10 @@ function Detail({ id }: { id: string }) {
 }
 
 // ─── Root export ────────────────────────────────────────────────
+// NOTE: AppStateProvider and ToastProvider are already provided by the
+// layout — do NOT wrap again here or state will be isolated from the rest
+// of the app (profile page won't see beenData / savedIds updates).
 
 export default function TripDetail({ id }: Props) {
-  return (
-    <AppStateProvider>
-      <ToastProvider>
-        <Detail id={id} />
-      </ToastProvider>
-    </AppStateProvider>
-  )
+  return <Detail id={id} />
 }

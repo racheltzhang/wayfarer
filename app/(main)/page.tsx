@@ -3,11 +3,11 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import FeedHeader from '@/components/feed/FeedHeader'
-import FriendStories from '@/components/feed/FriendStories'
+import FriendsTravelling from '@/components/feed/FriendsTravelling'
 import TripCard from '@/components/feed/TripCard'
 import SearchBar from '@/components/ui/SearchBar'
 import { useAppState } from '@/lib/app-state'
-import { MOCK_TRIPS, MOCK_FRIENDS } from '@/lib/mock-data'
+import { MOCK_TRIPS } from '@/lib/mock-data'
 
 type FeedTab = 'forYou' | 'following' | 'saved' | 'liked'
 
@@ -141,12 +141,8 @@ export default function FeedPage() {
       {showWelcome && <WelcomeBanner onDismiss={dismissWelcome} />}
       <SearchBar placeholder="Search destinations, trips…" onSearch={setQuery} />
 
-      {/* Friend stories */}
-      <div className="flex items-center justify-between px-5 mb-3">
-        <h2 className="text-[15px] font-semibold">Friends&apos; Stories</h2>
-        <button className="text-xs font-medium" style={{ color: 'var(--gold)' }}>See all</button>
-      </div>
-      <FriendStories friends={MOCK_FRIENDS} />
+      {/* Friends travelling */}
+      <FriendsTravelling />
 
       {/* Tab bar */}
       <div className="flex gap-1 px-5 mb-4 overflow-x-auto no-scrollbar">

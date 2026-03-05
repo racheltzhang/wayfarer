@@ -8,12 +8,12 @@ import { MOCK_PROFILES, MOCK_TRIPS } from '@/lib/mock-data'
 import { useAppState } from '@/lib/app-state'
 import { useToast } from '@/components/ui/Toast'
 import { formatRating } from '@/lib/utils'
-import type { Profile, Trip } from '@/lib/types'
+import type { Profile, Trip, BeenTripData } from '@/lib/types'
 
 const ME        = MOCK_PROFILES.find(p => p.id === 'me')!
 const ALL_USERS = MOCK_PROFILES.filter(p => p.id !== 'me')
 
-type Tab    = 'trips' | 'saved'
+type Tab    = 'trips' | 'been' | 'saved'
 type Sheet  = null | 'followers' | 'following' | 'settings'
 type SortBy = 'recent' | 'rating'
 
@@ -219,6 +219,121 @@ function SavedTripRow({ trip }: { trip: Trip }) {
   )
 }
 
+// ─── Been Card ───────────────────────────────────────────────────
+function BeenCard({ data, allTrips }: { data: BeenTripData; allTrips: Trip[] }) {
+  const router = useRouter()
+  // Look up the original trip for title / cover
+  const originalTrip = allTrips.find(t => t.id === data.tripId)
+
+  // Build a timing label
+  function timingLabel(): string {
+    if (data.approxMonth && data.approxYear) return `${data.approxMonth} ${data.approxYear}`
+    if (data.approxSeason && data.approxYear) {
+      const icons: Record<string, string> = { spring: '🌸', summer: '☀️', autumn: '🍂', winter: '❄️' }
+      return `${icons[data.approxSeason] ?? ''} ${data.approxSeason.charAt(0).toUpperCase() + data.approxSeason.slice(1)} ${data.approxYear}`
+    }
+    if (data.approxYear) return data.approxYear
+    return 'Date unknown'
+  }
+
+  const coverUrl = data.photos[0] ?? originalTrip?.cover_image_url ?? null
+  const title    = originalTrip?.title ?? data.location
+
+  return (
+    <div
+      className="rounded-[14px] overflow-hidden mb-3"
+      style={{ background: 'var(--bg3)', border: '1px solid var(--border)' }}
+    >
+      {/* Cover photo */}
+      {coverUrl && (
+        <div className="relative w-full" style={{ height: 160 }}>
+          <Image src={coverUrl} alt={title} fill className="object-cover" />
+          <div style={{
+            position: 'absolute', inset: 0,
+            background: 'linear-gradient(to bottom, transparent 40%, rgba(11,11,20,0.55) 100%)',
+            pointerEvents: 'none',
+          }} />
+          {/* Been badge */}
+          <div style={{
+            position: 'absolute', top: 10, left: 10,
+            background: 'rgba(11,11,20,0.75)', backdropFilter: 'blur(8px)',
+            borderRadius: 8, padding: '3px 8px',
+            fontSize: 11, fontWeight: 700, color: '#4ade80',
+            border: '1px solid rgba(74,222,128,0.3)',
+          }}>
+            ✓ Been here
+          </div>
+        </div>
+      )}
+
+      {/* Info */}
+      <div className="px-4 pt-3 pb-3">
+        <div className="flex items-start justify-between gap-2 mb-1">
+          <div>
+            <div className="font-head text-[16px] leading-snug">{title}</div>
+            <div className="flex items-center gap-1.5 text-xs mt-0.5" style={{ color: 'var(--text2)' }}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="10" height="10" style={{ flexShrink: 0, color: 'var(--gold)' }}>
+                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>
+              </svg>
+              <span>{data.location}</span>
+            </div>
+          </div>
+          <button
+            className="flex-shrink-0 flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full transition-colors mt-0.5"
+            style={{ background: 'var(--bg2)', border: '1px solid var(--border)', color: 'var(--text2)' }}
+            onClick={() => router.push(`/trip/${data.tripId}`)}
+          >
+            View
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="10" height="10">
+              <polyline points="9 18 15 12 9 6" />
+            </svg>
+          </button>
+        </div>
+
+        {/* Timing */}
+        <div className="flex items-center gap-1 text-xs mb-2" style={{ color: 'var(--text3)' }}>
+          <span>📅</span>
+          <span>{timingLabel()}</span>
+        </div>
+
+        {/* Notes */}
+        {data.notes && (
+          <p className="text-[12px] leading-relaxed mb-2" style={{ color: 'var(--text2)' }}>
+            {data.notes.length > 100 ? data.notes.slice(0, 100) + '…' : data.notes}
+          </p>
+        )}
+
+        {/* Memories */}
+        {data.memories.length > 0 && (
+          <div className="flex flex-wrap gap-1.5 mb-2">
+            {data.memories.slice(0, 3).map((m, i) => (
+              <span
+                key={i}
+                className="flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full"
+                style={{ background: 'var(--bg2)', border: '1px solid var(--border)', color: 'var(--text2)' }}
+              >
+                <span>{m.emoji}</span>
+                <span>{m.text.length > 20 ? m.text.slice(0, 20) + '…' : m.text}</span>
+              </span>
+            ))}
+          </div>
+        )}
+
+        {/* Extra photos strip */}
+        {data.photos.length > 1 && (
+          <div className="flex gap-1.5 overflow-x-auto no-scrollbar">
+            {data.photos.slice(1, 5).map((url, i) => (
+              <div key={i} className="relative flex-shrink-0 rounded-[6px] overflow-hidden" style={{ width: 52, height: 52 }}>
+                <Image src={url} alt="" fill className="object-cover" />
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 // ─── User row in follow sheet ────────────────────────────────────
 function UserRow({ user, isFollowing, onToggle }: {
   user: Profile; isFollowing: boolean; onToggle: () => void
@@ -254,7 +369,7 @@ function UserRow({ user, isFollowing, onToggle }: {
 export default function ProfilePage() {
   const router = useRouter()
   const { showToast } = useToast()
-  const { savedIds, followingIds, toggleFollow, publishedTrips } = useAppState()
+  const { savedIds, followingIds, toggleFollow, publishedTrips, beenData } = useAppState()
 
   const [tab,    setTab]    = useState<Tab>('trips')
   const [sheet,  setSheet]  = useState<Sheet>(null)
@@ -271,6 +386,15 @@ export default function ProfilePage() {
     ...publishedTrips,
     ...mockMyTrips.filter(t => !publishedTrips.some(p => p.id === t.id)),
   ]
+
+  // All trips (for lookup in BeenCard)
+  const allTrips: Trip[] = [
+    ...publishedTrips,
+    ...MOCK_TRIPS.filter(t => !publishedTrips.some(p => p.id === t.id)),
+  ]
+
+  // Been entries (sorted by saved order — most recent first by Object.values order)
+  const beenEntries: BeenTripData[] = Object.values(beenData)
 
   // Sort
   const sortedMyTrips = [...myTrips].sort((a, b) => {
@@ -322,7 +446,7 @@ export default function ProfilePage() {
 
         <div className="flex-1 flex justify-around">
           {[
-            { label: 'Trips',     value: myTrips.length,  onClick: undefined },
+            { label: 'Trips',     value: myTrips.length,  onClick: () => setTab('trips') },
             { label: 'Followers', value: followerCount,   onClick: () => setSheet('followers') },
             { label: 'Following', value: followingCount,  onClick: () => setSheet('following') },
           ].map(s => (
@@ -356,7 +480,11 @@ export default function ProfilePage() {
 
       {/* ── Tab switcher ─────────────────────────────────────── */}
       <div className="flex mx-5 mb-4 gap-3">
-        {([['trips', '✈', 'My Trips'], ['saved', '🔖', 'Saved']] as [Tab, string, string][]).map(([t, icon, label]) => (
+        {([
+        ['trips', '✈️', 'My Trips'],
+        ['been',  '🗺️', `Been${beenEntries.length > 0 ? ` (${beenEntries.length})` : ''}`],
+        ['saved', '🔖', 'Saved'],
+      ] as [Tab, string, string][]).map(([t, icon, label]) => (
           <button
             key={t}
             onClick={() => setTab(t)}
@@ -412,6 +540,32 @@ export default function ProfilePage() {
               <button className="btn-primary text-sm px-6" onClick={() => router.push('/create')}>
                 + Create a Trip
               </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Been / Visited log ───────────────────────────────── */}
+      {tab === 'been' && (
+        <div className="px-5">
+          {beenEntries.length > 0 ? (
+            <>
+              <div className="flex items-center gap-2 mb-4">
+                <span className="text-xs" style={{ color: 'var(--text3)' }}>
+                  {beenEntries.length} {beenEntries.length === 1 ? 'place' : 'places'} logged
+                </span>
+              </div>
+              {beenEntries.map(entry => (
+                <BeenCard key={entry.tripId} data={entry} allTrips={allTrips} />
+              ))}
+            </>
+          ) : (
+            <div className="flex flex-col items-center justify-center py-16 text-center px-4">
+              <div className="text-4xl mb-3">🗺️</div>
+              <div className="text-sm font-semibold mb-1">No visits logged yet</div>
+              <div className="text-xs mb-4" style={{ color: 'var(--text2)' }}>
+                Tap &ldquo;Log my visit&rdquo; on any trip to record your experience
+              </div>
             </div>
           )}
         </div>
