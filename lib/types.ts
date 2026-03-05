@@ -150,6 +150,17 @@ export interface BeenMemory {
   text: string
 }
 
+export interface BeenStop {
+  emoji: string
+  place: string
+  note: string
+}
+
+export interface BeenItineraryDay {
+  title: string        // e.g. "Day 1", "Arrival", "Amalfi drive"
+  stops: BeenStop[]
+}
+
 export interface BeenTripData {
   tripId: string          // original trip id (if logging against a discovered trip)
   location: string
@@ -162,4 +173,5 @@ export interface BeenTripData {
   notes: string
   photos: string[]
   memories: BeenMemory[]
+  itinerary: BeenItineraryDay[]
 }

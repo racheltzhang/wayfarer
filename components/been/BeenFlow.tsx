@@ -2,7 +2,7 @@
 
 import { useRef, useState } from 'react'
 import Image from 'next/image'
-import type { Trip, Season, BeenMemory, BeenTripData } from '@/lib/types'
+import type { Trip, Season, BeenMemory, BeenItineraryDay, BeenStop, BeenTripData } from '@/lib/types'
 import { useAppState } from '@/lib/app-state'
 import { useToast } from '@/components/ui/Toast'
 
@@ -111,6 +111,51 @@ export default function BeenFlow({ trip, onClose, onSaved }: Props) {
     setMemories(prev => prev.filter((_, idx) => idx !== i))
   }
 
+  // ── Itinerary state ─────────────────────────────────────────
+  const [itinerary,      setItinerary]      = useState<BeenItineraryDay[]>([])
+  const [itinExpanded,   setItinExpanded]   = useState(false)
+  // which day is currently open for adding a stop
+  const [addingStopDay,  setAddingStopDay]  = useState<number | null>(null)
+  const [stopEmoji,      setStopEmoji]      = useState('📍')
+  const [stopPlace,      setStopPlace]      = useState('')
+  const [stopNote,       setStopNote]       = useState('')
+  // editing a day title inline
+  const [editingDayIdx,  setEditingDayIdx]  = useState<number | null>(null)
+
+  const STOP_EMOJIS = ['📍','🍽️','🏛️','🏨','🌅','☕','🛍️','🏖️','🎵','🤿','🚶','🚗','⛪','🍷','🎭','🌿']
+
+  function addDay() {
+    setItinerary(prev => [...prev, { title: `Day ${prev.length + 1}`, stops: [] }])
+    setAddingStopDay(itinerary.length) // open the new day immediately
+  }
+
+  function removeDay(dayIdx: number) {
+    setItinerary(prev => prev.filter((_, i) => i !== dayIdx))
+    if (addingStopDay === dayIdx) setAddingStopDay(null)
+  }
+
+  function updateDayTitle(dayIdx: number, title: string) {
+    setItinerary(prev => prev.map((d, i) => i === dayIdx ? { ...d, title } : d))
+  }
+
+  function addStop(dayIdx: number) {
+    if (!stopPlace.trim()) return
+    const stop: BeenStop = { emoji: stopEmoji, place: stopPlace.trim(), note: stopNote.trim() }
+    setItinerary(prev => prev.map((d, i) =>
+      i === dayIdx ? { ...d, stops: [...d.stops, stop] } : d
+    ))
+    setStopPlace('')
+    setStopNote('')
+    setStopEmoji('📍')
+    setAddingStopDay(null)
+  }
+
+  function removeStop(dayIdx: number, stopIdx: number) {
+    setItinerary(prev => prev.map((d, i) =>
+      i === dayIdx ? { ...d, stops: d.stops.filter((_, j) => j !== stopIdx) } : d
+    ))
+  }
+
   // ── Navigation ──────────────────────────────────────────────
   const stepIdx = STEPS.indexOf(step)
   const isFirst = stepIdx === 0
@@ -140,6 +185,7 @@ export default function BeenFlow({ trip, onClose, onSaved }: Props) {
       notes,
       photos:       photos.filter(Boolean),
       memories,
+      itinerary,
     }
 
     saveBeen(data)
@@ -508,6 +554,197 @@ export default function BeenFlow({ trip, onClose, onSaved }: Props) {
                 </button>
               )}
             </div>
+
+            {/* ── Itinerary ── */}
+            <div>
+              {/* Section header — collapses/expands the whole block */}
+              <button
+                onClick={() => { setItinExpanded(p => !p); if (!itinExpanded && itinerary.length === 0) addDay() }}
+                style={{
+                  width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  background: 'none', border: 'none', cursor: 'pointer', padding: 0, marginBottom: itinExpanded ? 12 : 0,
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
+                  <span style={{ ...labelStyle, marginBottom: 0 }}>Itinerary</span>
+                  <span style={{ fontSize: 11, color: 'var(--text3)' }}>optional</span>
+                </div>
+                <svg
+                  viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16"
+                  style={{ color: 'var(--text3)', transform: itinExpanded ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s', flexShrink: 0 }}
+                >
+                  <polyline points="6 9 12 15 18 9"/>
+                </svg>
+              </button>
+
+              {itinExpanded && (
+                <div>
+                  <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 14, lineHeight: 1.45 }}>
+                    Jot down your stops, day by day. Keep it as simple or detailed as you like.
+                  </div>
+
+                  {/* Days */}
+                  {itinerary.map((day, dayIdx) => (
+                    <div key={dayIdx} style={{
+                      marginBottom: 14, borderRadius: 12,
+                      background: 'var(--bg3)', border: '1px solid var(--border)', overflow: 'hidden',
+                    }}>
+                      {/* Day header */}
+                      <div style={{
+                        display: 'flex', alignItems: 'center', gap: 8,
+                        padding: '10px 12px', borderBottom: day.stops.length > 0 || addingStopDay === dayIdx ? '1px solid var(--border)' : 'none',
+                      }}>
+                        <div style={{
+                          width: 26, height: 26, borderRadius: 7, flexShrink: 0,
+                          background: 'var(--gold-dim)', border: '1px solid var(--gold)',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          fontSize: 10, fontWeight: 800, color: 'var(--gold)',
+                        }}>
+                          {dayIdx + 1}
+                        </div>
+                        {editingDayIdx === dayIdx ? (
+                          <input
+                            style={{ ...inputStyle, padding: '5px 8px', fontSize: 13, flex: 1 }}
+                            value={day.title}
+                            onChange={e => updateDayTitle(dayIdx, e.target.value)}
+                            onBlur={() => setEditingDayIdx(null)}
+                            onKeyDown={e => e.key === 'Enter' && setEditingDayIdx(null)}
+                            autoFocus
+                          />
+                        ) : (
+                          <button
+                            onClick={() => setEditingDayIdx(dayIdx)}
+                            style={{ flex: 1, textAlign: 'left', background: 'none', border: 'none', cursor: 'text', fontSize: 13, fontWeight: 600, color: 'var(--text)', padding: 0 }}
+                          >
+                            {day.title}
+                            <span style={{ fontSize: 10, color: 'var(--text3)', marginLeft: 6, fontWeight: 400 }}>tap to rename</span>
+                          </button>
+                        )}
+                        <button
+                          onClick={() => removeDay(dayIdx)}
+                          style={{ background: 'none', border: 'none', color: 'var(--text3)', cursor: 'pointer', padding: 4, flexShrink: 0 }}
+                        >
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="13" height="13">
+                            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                          </svg>
+                        </button>
+                      </div>
+
+                      {/* Stops */}
+                      {day.stops.map((stop, stopIdx) => (
+                        <div key={stopIdx} style={{
+                          display: 'flex', alignItems: 'flex-start', gap: 10,
+                          padding: '9px 12px',
+                          borderBottom: stopIdx < day.stops.length - 1 || addingStopDay === dayIdx ? '1px solid var(--border)' : 'none',
+                        }}>
+                          <span style={{ fontSize: 18, flexShrink: 0, marginTop: 1 }}>{stop.emoji}</span>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontSize: 13, fontWeight: 600 }}>{stop.place}</div>
+                            {stop.note && <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>{stop.note}</div>}
+                          </div>
+                          <button
+                            onClick={() => removeStop(dayIdx, stopIdx)}
+                            style={{ background: 'none', border: 'none', color: 'var(--text3)', cursor: 'pointer', padding: 4, flexShrink: 0 }}
+                          >
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="12" height="12">
+                              <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                            </svg>
+                          </button>
+                        </div>
+                      ))}
+
+                      {/* Add stop form */}
+                      {addingStopDay === dayIdx ? (
+                        <div style={{ padding: '10px 12px' }}>
+                          {/* Emoji row */}
+                          <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', marginBottom: 8 }}>
+                            {STOP_EMOJIS.map(e => (
+                              <button
+                                key={e}
+                                onClick={() => setStopEmoji(e)}
+                                style={{
+                                  width: 30, height: 30, borderRadius: 7, fontSize: 15,
+                                  background: stopEmoji === e ? 'var(--gold-dim)' : 'var(--bg2)',
+                                  border: `1px solid ${stopEmoji === e ? 'var(--gold)' : 'var(--border)'}`,
+                                  cursor: 'pointer',
+                                }}
+                              >{e}</button>
+                            ))}
+                          </div>
+                          <input
+                            style={{ ...inputStyle, marginBottom: 6 }}
+                            placeholder="Place or activity name"
+                            value={stopPlace}
+                            onChange={e => setStopPlace(e.target.value)}
+                            onKeyDown={e => e.key === 'Enter' && addStop(dayIdx)}
+                            autoFocus
+                          />
+                          <input
+                            style={{ ...inputStyle, marginBottom: 10 }}
+                            placeholder="Note (optional) — e.g. book ahead, amazing views"
+                            value={stopNote}
+                            onChange={e => setStopNote(e.target.value)}
+                            onKeyDown={e => e.key === 'Enter' && addStop(dayIdx)}
+                          />
+                          <div style={{ display: 'flex', gap: 8 }}>
+                            <button
+                              onClick={() => { setAddingStopDay(null); setStopPlace(''); setStopNote('') }}
+                              style={{
+                                flex: 1, padding: '8px', borderRadius: 8, fontSize: 12,
+                                background: 'var(--bg2)', border: '1px solid var(--border)',
+                                color: 'var(--text2)', cursor: 'pointer',
+                              }}
+                            >Cancel</button>
+                            <button
+                              onClick={() => addStop(dayIdx)}
+                              disabled={!stopPlace.trim()}
+                              style={{
+                                flex: 2, padding: '8px', borderRadius: 8, fontSize: 12, fontWeight: 700,
+                                background: stopPlace.trim() ? 'var(--gold)' : 'var(--bg3)',
+                                color: stopPlace.trim() ? '#0B0B14' : 'var(--text3)',
+                                border: 'none', cursor: stopPlace.trim() ? 'pointer' : 'default',
+                              }}
+                            >Add stop</button>
+                          </div>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => setAddingStopDay(dayIdx)}
+                          style={{
+                            width: '100%', padding: '9px 12px', textAlign: 'left',
+                            background: 'none', border: 'none', cursor: 'pointer',
+                            fontSize: 12, color: 'var(--text3)',
+                            display: 'flex', alignItems: 'center', gap: 6,
+                          }}
+                        >
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="12" height="12">
+                            <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+                          </svg>
+                          Add stop
+                        </button>
+                      )}
+                    </div>
+                  ))}
+
+                  {/* Add day button */}
+                  <button
+                    onClick={addDay}
+                    style={{
+                      width: '100%', padding: '10px', borderRadius: 10,
+                      border: '1px dashed var(--border)', background: 'none',
+                      fontSize: 13, color: 'var(--text3)', cursor: 'pointer',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                    }}
+                  >
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="13" height="13">
+                      <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+                    </svg>
+                    Add {itinerary.length === 0 ? 'a day' : 'another day'}
+                  </button>
+                </div>
+              )}
+            </div>
+
           </div>
         )}
       </div>
