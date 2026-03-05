@@ -13,7 +13,7 @@ import type { Profile, Trip, BeenTripData } from '@/lib/types'
 const ME        = MOCK_PROFILES.find(p => p.id === 'me')!
 const ALL_USERS = MOCK_PROFILES.filter(p => p.id !== 'me')
 
-type Tab    = 'trips' | 'been' | 'saved'
+type Tab    = 'trips' | 'saved'
 type Sheet  = null | 'followers' | 'following' | 'settings'
 type SortBy = 'recent' | 'rating'
 
@@ -446,7 +446,7 @@ export default function ProfilePage() {
 
         <div className="flex-1 flex justify-around">
           {[
-            { label: 'Trips',     value: myTrips.length,  onClick: () => setTab('trips') },
+            { label: 'Trips',     value: myTrips.length + beenEntries.length,  onClick: () => setTab('trips') },
             { label: 'Followers', value: followerCount,   onClick: () => setSheet('followers') },
             { label: 'Following', value: followingCount,  onClick: () => setSheet('following') },
           ].map(s => (
@@ -480,11 +480,7 @@ export default function ProfilePage() {
 
       {/* ── Tab switcher ─────────────────────────────────────── */}
       <div className="flex mx-5 mb-4 gap-3">
-        {([
-        ['trips', '✈️', 'My Trips'],
-        ['been',  '🗺️', `Been${beenEntries.length > 0 ? ` (${beenEntries.length})` : ''}`],
-        ['saved', '🔖', 'Saved'],
-      ] as [Tab, string, string][]).map(([t, icon, label]) => (
+        {([['trips', '✈️', 'Trips'], ['saved', '🔖', 'Saved']] as [Tab, string, string][]).map(([t, icon, label]) => (
           <button
             key={t}
             onClick={() => setTab(t)}
@@ -505,68 +501,60 @@ export default function ProfilePage() {
         ))}
       </div>
 
-      {/* ── My Trips list ────────────────────────────────────── */}
+      {/* ── Trips tab: created + been combined ───────────────── */}
       {tab === 'trips' && (
         <div className="px-5">
-          {sortedMyTrips.length > 0 ? (
-            <>
-              {/* Sort controls */}
-              <div className="flex items-center gap-2 mb-4">
-                <span className="text-xs font-semibold" style={{ color: 'var(--text3)' }}>Sort by</span>
-                {([['recent', '🕐 Recent'], ['rating', '★ Top Rated']] as [SortBy, string][]).map(([s, label]) => (
-                  <button
-                    key={s}
-                    onClick={() => setSortBy(s)}
-                    className="text-xs font-semibold px-3 py-1.5 rounded-full transition-all"
-                    style={sortBy === s
-                      ? { background: 'var(--gold)', color: '#0B0B14' }
-                      : { background: 'var(--bg3)', color: 'var(--text2)', border: '1px solid var(--border)' }}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
-
-              {/* Cards */}
-              {sortedMyTrips.map(trip => (
-                <MyTripCard key={trip.id} trip={trip} />
-              ))}
-            </>
-          ) : (
+          {sortedMyTrips.length === 0 && beenEntries.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 text-center px-4">
               <div className="text-4xl mb-3">✈️</div>
               <div className="text-sm font-semibold mb-1">No trips yet</div>
-              <div className="text-xs mb-4" style={{ color: 'var(--text2)' }}>Plan your first adventure</div>
+              <div className="text-xs mb-4" style={{ color: 'var(--text2)' }}>Create a trip or log a visit to get started</div>
               <button className="btn-primary text-sm px-6" onClick={() => router.push('/create')}>
                 + Create a Trip
               </button>
             </div>
-          )}
-        </div>
-      )}
-
-      {/* ── Been / Visited log ───────────────────────────────── */}
-      {tab === 'been' && (
-        <div className="px-5">
-          {beenEntries.length > 0 ? (
+          ) : (
             <>
-              <div className="flex items-center gap-2 mb-4">
-                <span className="text-xs" style={{ color: 'var(--text3)' }}>
-                  {beenEntries.length} {beenEntries.length === 1 ? 'place' : 'places'} logged
-                </span>
-              </div>
+              {/* Sort controls — only if created trips exist */}
+              {sortedMyTrips.length > 0 && (
+                <div className="flex items-center gap-2 mb-4">
+                  <span className="text-xs font-semibold" style={{ color: 'var(--text3)' }}>Sort by</span>
+                  {([['recent', '🕐 Recent'], ['rating', '★ Top Rated']] as [SortBy, string][]).map(([s, label]) => (
+                    <button
+                      key={s}
+                      onClick={() => setSortBy(s)}
+                      className="text-xs font-semibold px-3 py-1.5 rounded-full transition-all"
+                      style={sortBy === s
+                        ? { background: 'var(--gold)', color: '#0B0B14' }
+                        : { background: 'var(--bg3)', color: 'var(--text2)', border: '1px solid var(--border)' }}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {/* Created trips */}
+              {sortedMyTrips.map(trip => (
+                <MyTripCard key={trip.id} trip={trip} />
+              ))}
+
+              {/* Been section divider — only if both types exist */}
+              {sortedMyTrips.length > 0 && beenEntries.length > 0 && (
+                <div className="flex items-center gap-3 my-4">
+                  <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+                  <span className="text-[11px] font-semibold" style={{ color: 'var(--text3)' }}>
+                    Places I&apos;ve been
+                  </span>
+                  <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+                </div>
+              )}
+
+              {/* Been entries */}
               {beenEntries.map(entry => (
                 <BeenCard key={entry.tripId} data={entry} allTrips={allTrips} />
               ))}
             </>
-          ) : (
-            <div className="flex flex-col items-center justify-center py-16 text-center px-4">
-              <div className="text-4xl mb-3">🗺️</div>
-              <div className="text-sm font-semibold mb-1">No visits logged yet</div>
-              <div className="text-xs mb-4" style={{ color: 'var(--text2)' }}>
-                Tap &ldquo;Log my visit&rdquo; on any trip to record your experience
-              </div>
-            </div>
           )}
         </div>
       )}
